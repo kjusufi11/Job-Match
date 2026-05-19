@@ -1,0 +1,52 @@
+import { createServerClient } from '@supabase/ssr';
+import { NextResponse, type NextRequest } from 'next/server';
+
+export async function middleware(request: NextRequest) {
+  let response = NextResponse.next({ request: { headers: request.headers } });
+
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name) { return request.cookies.get(name)?.value; },
+        set(name, value, options) {
+          request.cookies.set({ name, value, ...options });
+          response = NextResponse.next({ request: { headers: request.headers } });
+          response.cookies.set({ name, value, ...options });
+        },
+        remove(name, options) {
+          request.cookies.set({ name, value: '', ...options });
+          response = NextResponse.next({ request: { headers: request.headers } });
+          response.cookies.set({ name, value: '', ...options });
+        },
+      },
+    }
+  );
+
+  const path = request.nextUrl.pathname;
+
+  try {
+    // Read session from cookie — no network round-trip, keeps navigation fast
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user ?? null;
+
+    const authRequired = ['/dashboard', '/profile', '/notifications', '/settings', '/recruiter', '/admin'];
+    if (authRequired.some(r => path.startsWith(r)) && !user) {
+      return NextResponse.redirect(new URL('/login', request.url));
+    }
+
+    // Already logged in → skip auth pages
+    if (user && (path === '/login' || path === '/signup')) {
+      return NextResponse.redirect(new URL('/dashboard', request.url));
+    }
+  } catch {
+    // Auth check failed — allow the request through rather than blocking navigation
+  }
+
+  return response;
+}
+
+export const config = {
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|api/.*).*)'],
+};
