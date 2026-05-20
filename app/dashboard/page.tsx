@@ -26,7 +26,7 @@ export default function SeekerDashboard() {
   const [sel, setSel] = useState<Match | null>(null);
 
   useEffect(() => {
-    if (!profile) return;
+    if (!profile) { setFetching(false); return; }
     const timer = setTimeout(() => setFetching(false), 5000);
 
     async function load() {
@@ -84,7 +84,7 @@ export default function SeekerDashboard() {
 
     load();
     return () => clearTimeout(timer);
-  }, [profile?.id, supabase]);
+  }, [profile?.id, loading, supabase]);
 
   async function act(jobId: string, status: 'applied' | 'pass') {
     if (!profile) return;

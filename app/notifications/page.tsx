@@ -14,7 +14,7 @@ export default function Notifications() {
   const [fetching, setFetching] = useState(true);
 
   useEffect(() => {
-    if (!profile) return;
+    if (!profile) { setFetching(false); return; }
     const timer = setTimeout(() => setFetching(false), 5000);
     async function load() {
       try {
@@ -29,7 +29,7 @@ export default function Notifications() {
     }
     load();
     return () => clearTimeout(timer);
-  }, [profile, supabase]);
+  }, [profile, loading, supabase]);
 
   async function markRead(id: string) {
     await supabase.from('notifications').update({ read: true }).eq('id', id);

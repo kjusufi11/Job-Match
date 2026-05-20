@@ -142,7 +142,7 @@ export default function RecCandidates() {
   const fbReason = FEEDBACK_REASONS.find(r => r.id === fbReasonId) ?? null;
 
   useEffect(() => {
-    if (!profile || !jobId) return;
+    if (!profile || !jobId) { setFetching(false); return; }
     const timer = setTimeout(() => setFetching(false), 5000);
     async function load() {
       try {
@@ -195,7 +195,7 @@ export default function RecCandidates() {
     }
     load();
     return () => clearTimeout(timer);
-  }, [profile, jobId, supabase]);
+  }, [profile, jobId, loading, supabase]);
 
   async function shortlist(seekerId: string) {
     setActing(true);

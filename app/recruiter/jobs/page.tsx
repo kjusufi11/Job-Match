@@ -16,7 +16,7 @@ export default function RecJobs() {
   const [fetching, setFetching] = useState(true);
 
   useEffect(() => {
-    if (!profile) return;
+    if (!profile) { setFetching(false); return; }
     const timer = setTimeout(() => setFetching(false), 5000);
     async function load() {
       try {
@@ -48,7 +48,7 @@ export default function RecJobs() {
     }
     load();
     return () => clearTimeout(timer);
-  }, [profile, supabase]);
+  }, [profile, loading, supabase]);
 
   async function toggleStatus(jobId: string, current: string) {
     const next = current === 'active' ? 'paused' : 'active';
