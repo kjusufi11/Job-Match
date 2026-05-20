@@ -117,7 +117,7 @@ export default function SeekerDashboard() {
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
           <div>
-            <h1 style={{ fontSize: 22, fontWeight: 800, color: C.slate, margin: '0 0 3px', letterSpacing: -0.5 }}>Hey {profile.name.split(' ')[0]} 👋</h1>
+            <h1 style={{ fontSize: 22, fontWeight: 800, color: C.slate, margin: '0 0 3px', letterSpacing: -0.5 }}>Hey {profile.name?.split(' ')[0] ?? 'there'} 👋</h1>
             <p style={{ color: C.gray600, margin: 0, fontSize: 13 }}>You have <strong style={{ color: C.teal }}>{strong} strong match{strong !== 1 ? 'es' : ''}</strong> waiting.</p>
           </div>
           <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
