@@ -16,10 +16,18 @@ export default function Notifications() {
   useEffect(() => {
     if (!profile) return;
     const timer = setTimeout(() => setFetching(false), 5000);
-    supabase.from('notifications').select('*').eq('user_id', profile.id).order('created_at', { ascending: false })
-      .then(({ data }) => { setNotifs((data ?? []) as Notification[]); })
-      .catch(() => {})
-      .finally(() => { clearTimeout(timer); setFetching(false); });
+    async function load() {
+      try {
+        const { data } = await supabase.from('notifications').select('*').eq('user_id', profile!.id).order('created_at', { ascending: false });
+        setNotifs((data ?? []) as Notification[]);
+      } catch {
+        // render empty on error
+      } finally {
+        clearTimeout(timer);
+        setFetching(false);
+      }
+    }
+    load();
     return () => clearTimeout(timer);
   }, [profile, supabase]);
 
