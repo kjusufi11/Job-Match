@@ -17,29 +17,37 @@ export default function RecJobs() {
 
   useEffect(() => {
     if (!profile) return;
+    const timer = setTimeout(() => setFetching(false), 5000);
     async function load() {
-      const { data } = await supabase
-        .from('jobs')
-        .select('*')
-        .eq('recruiter_id', profile!.id)
-        .order('created_at', { ascending: false });
+      try {
+        const { data } = await supabase
+          .from('jobs')
+          .select('*')
+          .eq('recruiter_id', profile!.id)
+          .order('created_at', { ascending: false });
 
-      if (!data?.length) { setFetching(false); return; }
+        if (data?.length) {
+          const jobIds = data.map((j: Job) => j.id);
+          const { data: apps } = await supabase.from('applications').select('job_id, status').in('job_id', jobIds);
 
-      const jobIds = data.map((j: Job) => j.id);
-      const { data: apps } = await supabase.from('applications').select('job_id, status').in('job_id', jobIds);
+          const countMap: Record<string, { total: number; shortlisted: number }> = {};
+          (apps ?? []).forEach((a: any) => {
+            if (!countMap[a.job_id]) countMap[a.job_id] = { total: 0, shortlisted: 0 };
+            countMap[a.job_id].total++;
+            if (a.status === 'shortlisted') countMap[a.job_id].shortlisted++;
+          });
 
-      const countMap: Record<string, { total: number; shortlisted: number }> = {};
-      (apps ?? []).forEach((a: any) => {
-        if (!countMap[a.job_id]) countMap[a.job_id] = { total: 0, shortlisted: 0 };
-        countMap[a.job_id].total++;
-        if (a.status === 'shortlisted') countMap[a.job_id].shortlisted++;
-      });
-
-      setJobs(data.map((j: Job) => ({ ...j, applicant_count: countMap[j.id]?.total ?? 0, shortlisted_count: countMap[j.id]?.shortlisted ?? 0 })));
-      setFetching(false);
+          setJobs(data.map((j: Job) => ({ ...j, applicant_count: countMap[j.id]?.total ?? 0, shortlisted_count: countMap[j.id]?.shortlisted ?? 0 })));
+        }
+      } catch {
+        // render empty on error
+      } finally {
+        clearTimeout(timer);
+        setFetching(false);
+      }
     }
     load();
+    return () => clearTimeout(timer);
   }, [profile, supabase]);
 
   async function toggleStatus(jobId: string, current: string) {

@@ -143,50 +143,58 @@ export default function RecCandidates() {
 
   useEffect(() => {
     if (!profile || !jobId) return;
+    const timer = setTimeout(() => setFetching(false), 5000);
     async function load() {
-      const { data: job } = await supabase.from('jobs').select('title').eq('id', jobId).single();
-      setJobTitle(job?.title ?? '');
+      try {
+        const { data: job } = await supabase.from('jobs').select('title').eq('id', jobId).single();
+        setJobTitle(job?.title ?? '');
 
-      const { data: scores } = await supabase
-        .from('match_scores')
-        .select(`
-          seeker_id, total_score, score_skills, score_salary,
-          score_experience, score_location, score_industry,
-          profiles:seeker_id ( name, title, location, experience_level, salary_label, skills, video_url )
-        `)
-        .eq('job_id', jobId)
-        .order('total_score', { ascending: false });
+        const { data: scores } = await supabase
+          .from('match_scores')
+          .select(`
+            seeker_id, total_score, score_skills, score_salary,
+            score_experience, score_location, score_industry,
+            profiles:seeker_id ( name, title, location, experience_level, salary_label, skills, video_url )
+          `)
+          .eq('job_id', jobId)
+          .order('total_score', { ascending: false });
 
-      const seekerIds = scores?.map((s: any) => s.seeker_id) ?? [];
-      const { data: apps } = seekerIds.length
-        ? await supabase.from('applications').select('seeker_id, status, feedback').eq('job_id', jobId).in('seeker_id', seekerIds)
-        : { data: [] };
+        const seekerIds = scores?.map((s: any) => s.seeker_id) ?? [];
+        const { data: apps } = seekerIds.length
+          ? await supabase.from('applications').select('seeker_id, status, feedback').eq('job_id', jobId).in('seeker_id', seekerIds)
+          : { data: [] };
 
-      const appMap = Object.fromEntries((apps ?? []).map((a: any) => [a.seeker_id, { status: a.status, feedback: a.feedback }]));
+        const appMap = Object.fromEntries((apps ?? []).map((a: any) => [a.seeker_id, { status: a.status, feedback: a.feedback }]));
 
-      const rows: Candidate[] = (scores ?? []).map((s: any) => ({
-        seeker_id: s.seeker_id,
-        name: s.profiles?.name ?? 'Unknown',
-        title: s.profiles?.title ?? null,
-        location: s.profiles?.location ?? null,
-        experience_level: s.profiles?.experience_level ?? null,
-        salary_label: s.profiles?.salary_label ?? null,
-        skills: s.profiles?.skills ?? [],
-        video_url: s.profiles?.video_url ?? null,
-        total_score: s.total_score,
-        score_skills: s.score_skills,
-        score_salary: s.score_salary,
-        score_experience: s.score_experience,
-        score_location: s.score_location,
-        score_industry: s.score_industry,
-        appStatus: appMap[s.seeker_id]?.status ?? null,
-        feedback: appMap[s.seeker_id]?.feedback ?? null,
-      }));
+        const rows: Candidate[] = (scores ?? []).map((s: any) => ({
+          seeker_id: s.seeker_id,
+          name: s.profiles?.name ?? 'Unknown',
+          title: s.profiles?.title ?? null,
+          location: s.profiles?.location ?? null,
+          experience_level: s.profiles?.experience_level ?? null,
+          salary_label: s.profiles?.salary_label ?? null,
+          skills: s.profiles?.skills ?? [],
+          video_url: s.profiles?.video_url ?? null,
+          total_score: s.total_score,
+          score_skills: s.score_skills,
+          score_salary: s.score_salary,
+          score_experience: s.score_experience,
+          score_location: s.score_location,
+          score_industry: s.score_industry,
+          appStatus: appMap[s.seeker_id]?.status ?? null,
+          feedback: appMap[s.seeker_id]?.feedback ?? null,
+        }));
 
-      setCandidates(rows);
-      setFetching(false);
+        setCandidates(rows);
+      } catch {
+        // render empty on error
+      } finally {
+        clearTimeout(timer);
+        setFetching(false);
+      }
     }
     load();
+    return () => clearTimeout(timer);
   }, [profile, jobId, supabase]);
 
   async function shortlist(seekerId: string) {

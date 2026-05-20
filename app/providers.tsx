@@ -31,6 +31,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let cancelled = false;
+    const loadingTimer = setTimeout(() => { if (!cancelled) setLoading(false); }, 5000);
 
     async function init() {
       try {
@@ -43,6 +44,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         // Any failure (network, invalid token, etc.) — treat as logged out
         if (!cancelled) setProfile(null);
       } finally {
+        clearTimeout(loadingTimer);
         // Always clear loading — this runs even if getSession() throws
         if (!cancelled) setLoading(false);
       }
@@ -63,6 +65,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
     return () => {
       cancelled = true;
+      clearTimeout(loadingTimer);
       subscription.unsubscribe();
     };
   }, [supabase, fetchProfile]);
