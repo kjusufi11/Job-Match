@@ -1,3 +1,4 @@
+import React from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 
 export const C = {
@@ -42,7 +43,7 @@ export function FField({ label, value, onChange, placeholder, type = 'text', row
   );
 }
 
-export function PBtn({ onClick, children, full = false, style = {}, disabled = false, type = 'button' }: { onClick?: () => void; children: ReactNode; full?: boolean; style?: CSSProperties; disabled?: boolean; type?: 'button' | 'submit' }) {
+export function PBtn({ onClick, children, full = false, style = {}, disabled = false, type = 'button' }: { onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void; children: ReactNode; full?: boolean; style?: CSSProperties; disabled?: boolean; type?: 'button' | 'submit' }) {
   return (
     <button type={type} onClick={onClick} disabled={disabled} style={{ width: full ? '100%' : 'auto', padding: '11px 22px', borderRadius: 8, background: disabled ? C.gray400 : C.teal, color: C.white, border: 'none', fontWeight: 700, fontSize: 14, cursor: disabled ? 'default' : 'pointer', fontFamily: F, ...style }}>
       {children}
@@ -50,7 +51,7 @@ export function PBtn({ onClick, children, full = false, style = {}, disabled = f
   );
 }
 
-export function GBtn({ onClick, children, style = {} }: { onClick?: () => void; children: ReactNode; style?: CSSProperties }) {
+export function GBtn({ onClick, children, style = {} }: { onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void; children: ReactNode; style?: CSSProperties }) {
   return (
     <button onClick={onClick} style={{ padding: '11px 18px', borderRadius: 8, background: 'none', border: `1.5px solid ${C.border}`, color: C.gray600, fontWeight: 600, fontSize: 14, cursor: 'pointer', fontFamily: F, ...style }}>
       {children}

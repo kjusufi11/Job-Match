@@ -63,7 +63,7 @@ type SurveyData = {
   maxCommute:number; employmentType:string[]; availability:string; relocation:string;
   relocationRegions:string; travel:string; companySize:string[]; targetIndustries:string[];
   feedback:string; workStyle:string; pace:string; mgmtStyle:string; teamRole:string;
-  envPrefs:string[]; motivators:string[];
+  envPrefs:string[]; motivators:string[]; targetCulture:string[];
   personality:Record<string,number>; commStyle:string; mistakeStyle:string;
   primaryGoal:string; fiveYear:string; searchIntensity:string; otherInterviews:string;
   stayReasons:string[]; personalNote:string;
@@ -78,7 +78,7 @@ const INIT: SurveyData = {
   targetTitles:'',salaryMin:60,salaryMax:150,remotePreference:'',
   maxCommute:30,employmentType:[],availability:'',relocation:'',
   relocationRegions:'',travel:'',companySize:[],targetIndustries:[],
-  feedback:'',workStyle:'',pace:'',mgmtStyle:'',teamRole:'',envPrefs:[],motivators:[],
+  feedback:'',workStyle:'',pace:'',mgmtStyle:'',teamRole:'',envPrefs:[],motivators:[],targetCulture:[],
   personality:{},commStyle:'',mistakeStyle:'',
   primaryGoal:'',fiveYear:'',searchIntensity:'',otherInterviews:'',stayReasons:[],personalNote:'',
 };
@@ -364,28 +364,22 @@ function S5({d,set}:{d:SurveyData;set:React.Dispatch<React.SetStateAction<Survey
 }
 
 function S6({d,set}:{d:SurveyData;set:React.Dispatch<React.SetStateAction<SurveyData>>}){
+  const CULTURE_OPTIONS=['Fast-paced & high-energy','Collaborative & team-first','Data-driven & analytical','Creative & experimental','Process-driven & structured','Mission-driven & purpose-led','Performance & results-oriented','Autonomous & self-directed','Transparent & flat hierarchy','Stable & predictable'];
   return<>
     <SLabel>Section 6</SLabel>
-    <h2 style={{fontSize:21,fontWeight:800,color:C.slate,margin:'0 0 3px',letterSpacing:-0.5,fontFamily:F}}>Work Style & Environment</h2>
-    <Sub>How you work matters as much as what you've done. This matches you with teams where you'll actually thrive.</Sub>
+    <h2 style={{fontSize:21,fontWeight:800,color:C.slate,margin:'0 0 3px',letterSpacing:-0.5,fontFamily:F}}>Work Style & Culture Fit</h2>
+    <Sub>How you work matters as much as what you've done. These answers are matched directly against what employers tell us about their team and culture.</Sub>
+    <Divider/>
+    <QLabel required>What kind of culture are you looking for?</QLabel>
+    <Sub>Pick all that resonate. These exact descriptors are what companies use to describe themselves — so overlap = culture match score.</Sub>
+    <MultiPill options={CULTURE_OPTIONS} values={d.targetCulture} onChange={v=>set(x=>({...x,targetCulture:v}))}/>
+    {d.targetCulture.length>0&&<div style={{fontSize:12,color:C.gray400,marginTop:7,fontFamily:F}}>{d.targetCulture.length} selected</div>}
+    <Divider/>
+    <QLabel required>Preferred management style from your direct manager</QLabel>
+    <RadioGroup options={['Hands-off — sets goals and trusts the team','Collaborative — involved but not directive','Structured — clear expectations and regular feedback','Mentor-focused — invested in growth and development','Varies — adapts to each person']} value={d.mgmtStyle} onChange={v=>set(x=>({...x,mgmtStyle:v}))}/>
     <Divider/>
     <QLabel required>How do you prefer to receive feedback?</QLabel>
     <RadioGroup options={['Real-time — as I go','Regular check-ins (weekly or bi-weekly)','Formal periodic reviews (quarterly)','Self-directed — I ask when I need it']} value={d.feedback} onChange={v=>set(x=>({...x,feedback:v}))}/>
-    <Divider/>
-    <QLabel required>Day-to-day work preference</QLabel>
-    <RadioGroup options={['Independently — I own my work and run with it','Collaboratively — I do my best in a team','Both — I switch based on the task','Structured process with clear direction']} value={d.workStyle} onChange={v=>set(x=>({...x,workStyle:v}))}/>
-    <Divider/>
-    <QLabel required>What pace do you thrive in?</QLabel>
-    <RadioGroup options={['Fast-paced, high-ambiguity startup energy','Structured and process-driven','Steady — quality over speed','Variable — depends on the project']} value={d.pace} onChange={v=>set(x=>({...x,pace:v}))}/>
-    <Divider/>
-    <QLabel required>Preferred management style from your direct manager</QLabel>
-    <RadioGroup options={['Hands-off — give me goals and let me run','Collaborative — we figure things out together','Structured — clear expectations and regular guidance','Mentor-focused — I want to learn and grow from them']} value={d.mgmtStyle} onChange={v=>set(x=>({...x,mgmtStyle:v}))}/>
-    <Divider/>
-    <QLabel>What role do you naturally play on a team?</QLabel>
-    <RadioGroup options={['The driver — I push things forward','The organizer — I keep everyone aligned','The creative — I generate ideas and solve uniquely','The executor — I get things done reliably','The connector — I build relationships and bridge gaps']} value={d.teamRole} onChange={v=>set(x=>({...x,teamRole:v}))}/>
-    <Divider/>
-    <QLabel>Work environment preferences</QLabel>
-    <MultiPill options={['Open / collaborative space','Quiet / private environment','Casual culture','Formal / professional culture','Mission-driven org','High-growth company','Work-life balance is a priority','Performance & results-driven']} values={d.envPrefs} onChange={v=>set(x=>({...x,envPrefs:v}))}/>
     <Divider/>
     <QLabel>What motivates you most? (Pick top 3)</QLabel>
     <MultiPill options={['Meaningful impact / mission','Career growth & advancement','Compensation & financial rewards','Learning new skills','Creative freedom','Team & culture','Flexibility & autonomy','Recognition & visibility','Stability & security']} values={d.motivators} onChange={v=>set(x=>({...x,motivators:v}))} max={3}/>
@@ -569,6 +563,7 @@ export default function ProfileSurvey(){
       teamRole:   profile.team_role||'',
       envPrefs:   profile.env_prefs||[],
       motivators: profile.motivators||[],
+      targetCulture: (profile as any).target_culture||[],
       personality:   (profile.personality as Record<string,number>)||{},
       commStyle:     profile.comm_style||'',
       mistakeStyle:  profile.mistake_style||'',
@@ -644,6 +639,7 @@ export default function ProfileSurvey(){
       team_role:data.teamRole||null,
       env_prefs:data.envPrefs,
       motivators:data.motivators,
+      target_culture:data.targetCulture,
       // Personality
       personality:data.personality,
       comm_style:data.commStyle||null,
@@ -662,6 +658,12 @@ export default function ProfileSurvey(){
 
     // Compute match scores against all active jobs (non-blocking)
     fetch('/api/match-scores',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({seekerId:uid})});
+
+    // Send welcome + profile-live emails on first completion only
+    if(!profile?.profile_complete){
+      fetch('/api/email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'seeker-welcome',seekerId:uid})});
+      fetch('/api/email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'seeker-profile-live',seekerId:uid})});
+    }
 
     await refreshProfile();
     setDone(true);

@@ -163,10 +163,10 @@ export function computeMatchScore(seeker: Profile, job: Job): DimensionScores {
   const weights: Record<keyof typeof dims, number> = {
     score_skills:       job.weight_skills,
     score_salary:       job.weight_salary,
-    score_personality:  job.weight_personality,
+    score_personality:  job.weight_personality ?? 0,
     score_location:     job.weight_location,
     score_experience:   job.weight_experience,
-    score_industry:     job.weight_industry,
+    score_industry:     job.weight_industry ?? 0,
     score_work_style:   job.weight_work_style,
     score_availability: job.weight_availability,
   };
