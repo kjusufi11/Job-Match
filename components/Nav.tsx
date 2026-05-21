@@ -56,7 +56,10 @@ export default function Nav() {
         ))}
 
         {!loading && !profile && (
-          <PBtn onClick={() => router.push('/signup')} style={{ padding: '7px 14px', fontSize: 13, marginLeft: 4 }}>Get started free</PBtn>
+          <>
+            <button onClick={() => router.push('/login')} style={{ background: 'none', border: `1.5px solid ${C.border}`, color: C.slate, fontWeight: 600, fontSize: 13, cursor: 'pointer', padding: '7px 14px', borderRadius: 7, fontFamily: F, marginLeft: 4 }}>Sign in</button>
+            <PBtn onClick={() => router.push('/signup')} style={{ padding: '7px 14px', fontSize: 13, marginLeft: 6 }}>Get started free</PBtn>
+          </>
         )}
 
         {!loading && profile && (
