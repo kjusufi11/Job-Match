@@ -43,7 +43,7 @@ type SurveyData = {
   primaryGoal:string; fiveYear:string; searchIntensity:string; stayReasons:string[]; referralSource:string; personalNote:string;
 };
 type SetData  = React.Dispatch<React.SetStateAction<SurveyData>>;
-type SecProps = { d:SurveyData; set:SetData };
+type SecProps = { d:SurveyData; set:SetData; errors?:Record<string,string> };
 
 const BD:Degree   = { level:'',field:'',university:'',gradYear:'',current:false,gpa:'',activities:'' };
 const BJ:WorkJob  = { company:'',title:'',location:'',startMonth:'',startYear:'',endMonth:'',endYear:'',current:false,employmentType:'',description:'',accomplishments:['','',''],reasonForLeaving:'' };
@@ -255,6 +255,10 @@ function Block({children,title,onRemove,canRemove,accent=C.teal}:{children:React
     {children}
   </div>;
 }
+function ErrMsg({msg}:{msg?:string}){
+  if(!msg)return null;
+  return<div style={{color:C.red,fontSize:12,marginTop:4,fontFamily:F,fontWeight:500}}>{msg}</div>;
+}
 function AddBtn({onClick,label}:{onClick:()=>void;label:string}){
   return<button onClick={onClick} style={{width:'100%',padding:'11px 0',borderRadius:9,background:'none',border:`1.5px dashed ${C.teal}`,color:C.teal,fontWeight:600,fontSize:14,cursor:'pointer',fontFamily:F,marginBottom:6,display:'flex',alignItems:'center',justifyContent:'center',gap:6}}>
     <span style={{fontSize:18,lineHeight:1}}>+</span> {label}
@@ -321,18 +325,18 @@ function ResumeUpload({onSkip}:{onSkip:()=>void}){
 }
 
 // ── Section 1: Basic Info & Online Presence ───────────────────────────────────
-function S1({d,set}:SecProps){return<>
+function S1({d,set,errors}:SecProps){return<>
   <ST section="Section 1 of 9" title="Basic Information" sub="Contact details and your online presence. Used for matching, communication, and your public profile."/>
   <Div/>
   <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:16}}>
-    <div><FL required>First name</FL><TI value={d.firstName} onChange={v=>set(x=>({...x,firstName:v}))} placeholder="Jane"/></div>
-    <div><FL required>Last name</FL><TI value={d.lastName} onChange={v=>set(x=>({...x,lastName:v}))} placeholder="Smith"/></div>
+    <div><FL required>First name</FL><TI value={d.firstName} onChange={v=>set(x=>({...x,firstName:v}))} placeholder="Jane"/><ErrMsg msg={errors?.firstName}/></div>
+    <div><FL required>Last name</FL><TI value={d.lastName} onChange={v=>set(x=>({...x,lastName:v}))} placeholder="Smith"/><ErrMsg msg={errors?.lastName}/></div>
   </div>
-  <div style={{marginBottom:16}}><FL required>Email address</FL><TI value={d.email} onChange={v=>set(x=>({...x,email:v}))} placeholder="jane@example.com" type="email"/></div>
+  <div style={{marginBottom:16}}><FL required>Email address</FL><TI value={d.email} onChange={v=>set(x=>({...x,email:v}))} placeholder="jane@example.com" type="email"/><ErrMsg msg={errors?.email}/></div>
   <div style={{marginBottom:16}}><FL optional>Phone number</FL><TI value={d.phone} onChange={v=>set(x=>({...x,phone:v}))} placeholder="+1 (555) 000-0000"/></div>
   <div style={{display:'grid',gridTemplateColumns:'2fr 1fr',gap:12,marginBottom:16}}>
-    <div><FL required>City & state</FL><TI value={d.location} onChange={v=>set(x=>({...x,location:v}))} placeholder="Chicago, IL"/></div>
-    <div><FL required>ZIP code</FL><TI value={d.zip} onChange={v=>set(x=>({...x,zip:v}))} placeholder="60601"/></div>
+    <div><FL required>City & state</FL><TI value={d.location} onChange={v=>set(x=>({...x,location:v}))} placeholder="Chicago, IL"/><ErrMsg msg={errors?.location}/></div>
+    <div><FL required>ZIP code</FL><TI value={d.zip} onChange={v=>set(x=>({...x,zip:v}))} placeholder="60601"/><ErrMsg msg={errors?.zip}/></div>
   </div>
   <Div label="Professional headline"/>
   <div style={{marginBottom:16}}>
@@ -348,6 +352,7 @@ function S1({d,set}:SecProps){return<>
   <div style={{marginBottom:16}}>
     <FL required>Are you legally authorized to work in the United States?</FL>
     <RG options={['Yes, without sponsorship','Yes, but I require sponsorship','No']} value={d.workAuth} onChange={v=>set(x=>({...x,workAuth:v}))}/>
+    <ErrMsg msg={errors?.workAuth}/>
   </div>
   <Div label="Voluntary self-identification (optional)"/>
   <p style={{fontSize:13,color:C.gray400,margin:'0 0 12px',fontFamily:F,lineHeight:1.6}}>Entirely optional — used only for EEOC compliance reporting with enterprise clients. No effect on your match score or visibility.</p>
@@ -420,7 +425,7 @@ function S3({d,set}:SecProps){
   </>;}
 
 // ── Section 4: Work History ───────────────────────────────────────────────────
-function S4({d,set}:SecProps){
+function S4({d,set,errors}:SecProps){
   const months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const years=Array.from({length:40},(_,i)=>(new Date().getFullYear()-i).toString());
   function addJ(){set(x=>({...x,jobs:[...x.jobs,{...BJ}]}));}
@@ -496,12 +501,13 @@ function S4({d,set}:SecProps){
     <AddBtn onClick={addV} label="Add volunteer experience"/>
     <Div label="Employment gaps"/>
     <div style={{marginBottom:16}}><FL optional hint="Only share what you're comfortable with.">Any gaps you'd like to explain?</FL><TA value={d.gaps} onChange={v=>set(x=>({...x,gaps:v}))} placeholder="e.g. Took 18 months off to care for a family member. Returned to work in 2023." rows={2}/></div>
-    <FL>Current employment status</FL>
+    <FL required>Current employment status</FL>
     <RG options={['Employed full-time','Employed part-time','Self-employed / Freelance','Currently unemployed','Student','Career break (planned)']} value={d.empStatus} onChange={v=>set(x=>({...x,empStatus:v}))}/>
+    <ErrMsg msg={errors?.empStatus}/>
   </>;}
 
 // ── Section 5: Skills & Expertise ────────────────────────────────────────────
-function S5({d,set}:SecProps){
+function S5({d,set,errors}:SecProps){
   function addP(){set(x=>({...x,projects:[...x.projects,{...BP}]}));}
   function updP(i:number,k:keyof Project,v:string){set(x=>({...x,projects:x.projects.map((p,idx)=>idx===i?{...p,[k]:v}:p)}));}
   function remP(i:number){set(x=>({...x,projects:x.projects.filter((_,idx)=>idx!==i)}));}
@@ -512,10 +518,12 @@ function S5({d,set}:SecProps){
       <FL required hint="Include technical, functional, and interpersonal skills all in one place. Press Enter or comma to add.">Your skills</FL>
       <TagInput values={d.skills} onChange={v=>set(x=>({...x,skills:v}))} suggestions={SKILL_SUGGESTIONS} placeholder="e.g. Product Management, SQL, Leadership, React..."/>
       {d.skills.length>0&&<div style={{fontSize:12,color:C.gray400,marginTop:6,fontFamily:F}}>{d.skills.length} skills added · type to add more</div>}
+      <ErrMsg msg={errors?.skills}/>
     </div>
     <div style={{marginBottom:20}}>
       <FL required>Overall seniority level</FL>
       <RG options={['Entry — building foundational skills (0–2 yrs)','Mid-level — solid independent contributor (3–5 yrs)','Senior — deep expertise, sometimes leads others (6–10 yrs)','Lead / Principal — sets direction, mentors others (10+ yrs)','Executive — organizational leadership']} value={d.seniority} onChange={v=>set(x=>({...x,seniority:v}))}/>
+      <ErrMsg msg={errors?.seniority}/>
     </div>
     <Div label="Languages"/>
     {d.languages.map((lang,i)=><div key={i} style={{display:'grid',gridTemplateColumns:'1fr 1fr auto',gap:8,marginBottom:8,alignItems:'end'}}>
@@ -547,7 +555,7 @@ function S5({d,set}:SecProps){
   </>;}
 
 // ── Section 6: Job Preferences ───────────────────────────────────────────────
-function S6({d,set}:SecProps){
+function S6({d,set,errors}:SecProps){
   const fmtS=(v:number)=>v>=500?'$500k+':`$${v}k`;
   const fmtC=(v:number)=>v>=90?'90+ min':`${v} min`;
   return<>
@@ -556,6 +564,7 @@ function S6({d,set}:SecProps){
     <div style={{marginBottom:20}}>
       <FL required hint="Add each title as a tag — press Enter after each one.">Target job titles</FL>
       <TagInput values={d.targetTitles} onChange={v=>set(x=>({...x,targetTitles:v}))} suggestions={TITLE_SUGGESTIONS} placeholder="e.g. Senior Product Manager, Director of Operations..."/>
+      <ErrMsg msg={errors?.targetTitles}/>
     </div>
     <Div label="Salary"/>
     <div style={{marginBottom:16}}>
@@ -568,12 +577,12 @@ function S6({d,set}:SecProps){
       {d.idealSalary-d.minSalary>0&&<div style={{fontSize:12,color:C.gray400,marginTop:6,fontFamily:F}}>Acceptable range: {fmtS(d.minSalary)} – {fmtS(d.idealSalary)}</div>}
     </div>
     <Div label="Location & remote"/>
-    <div style={{marginBottom:16}}><FL required>Remote work preference</FL><RG options={['Remote only — I will not commute','Strongly prefer remote, open to occasional on-site','Hybrid — mix of remote and office is ideal','Flexible — whatever the role requires','On-site preferred']} value={d.remotePreference} onChange={v=>set(x=>({...x,remotePreference:v}))}/></div>
+    <div style={{marginBottom:16}}><FL required>Remote work preference</FL><RG options={['Remote only — I will not commute','Strongly prefer remote, open to occasional on-site','Hybrid — mix of remote and office is ideal','Flexible — whatever the role requires','On-site preferred']} value={d.remotePreference} onChange={v=>set(x=>({...x,remotePreference:v}))}/><ErrMsg msg={errors?.remotePreference}/></div>
     {!d.remotePreference.includes('Remote only')&&d.remotePreference&&<div style={{marginBottom:16}}><FL hint="Based on your ZIP code, we filter roles by drive/transit time.">Maximum one-way commute you&apos;d accept</FL><Slider value={d.maxCommute} onChange={v=>set(x=>({...x,maxCommute:v}))} min={10} max={90} step={5} format={fmtC}/></div>}
     <div style={{marginBottom:16}}><FL>Open to relocation?</FL><RG options={['No — staying where I am','Yes — anywhere','Yes — specific regions only']} value={d.relocation} onChange={v=>set(x=>({...x,relocation:v}))}/>{d.relocation?.includes('specific regions')&&<div style={{marginTop:8}}><TI value={d.relocationRegions} onChange={v=>set(x=>({...x,relocationRegions:v}))} placeholder="e.g. Southeast US, New York metro, Pacific Northwest"/></div>}</div>
     <Div label="Role type & timing"/>
-    <div style={{marginBottom:16}}><FL required>Employment type</FL><CG options={EMPLOYMENT_TYPES} values={d.employmentType} onChange={v=>set(x=>({...x,employmentType:v}))} columns={2}/></div>
-    <div style={{marginBottom:16}}><FL required>When are you available to start?</FL><RG options={['Immediately (within 2 weeks)','Within 1 month','1–3 months','3–6 months','Exploring — no fixed timeline']} value={d.availability} onChange={v=>set(x=>({...x,availability:v}))}/></div>
+    <div style={{marginBottom:16}}><FL required>Employment type</FL><CG options={EMPLOYMENT_TYPES} values={d.employmentType} onChange={v=>set(x=>({...x,employmentType:v}))} columns={2}/><ErrMsg msg={errors?.employmentType}/></div>
+    <div style={{marginBottom:16}}><FL required>When are you available to start?</FL><RG options={['Immediately (within 2 weeks)','Within 1 month','1–3 months','3–6 months','Exploring — no fixed timeline']} value={d.availability} onChange={v=>set(x=>({...x,availability:v}))}/><ErrMsg msg={errors?.availability}/></div>
     <div style={{marginBottom:16}}><FL>Willing to travel for work?</FL><RG options={TRAVEL_LEVELS} value={d.travel} onChange={v=>set(x=>({...x,travel:v}))}/></div>
     <Div label="Company preferences"/>
     <div style={{marginBottom:16}}><FL>Preferred company size</FL><CG options={['Startup (1–50)','Small (51–200)','Mid-size (201–1,000)','Large (1,001–10,000)','Enterprise (10,000+)','No preference']} values={d.companySize} onChange={v=>set(x=>({...x,companySize:v}))} columns={2}/></div>
@@ -585,14 +594,14 @@ function S6({d,set}:SecProps){
   </>;}
 
 // ── Section 7: Work Style & Culture ──────────────────────────────────────────
-function S7({d,set}:SecProps){return<>
+function S7({d,set,errors}:SecProps){return<>
   <ST section="Section 7 of 9" title="Work Style & Culture" sub="These answers are matched directly against how companies describe themselves. The more honest you are, the better your matches."/>
   <Div/>
-  <div style={{marginBottom:16}}><FL required hint="These exact descriptors are what companies use to describe their culture — overlap = culture match score.">What kind of culture are you looking for?</FL><CG options={CULTURE_DESCRIPTORS} values={d.targetCulture} onChange={v=>set(x=>({...x,targetCulture:v}))} columns={2}/></div>
+  <div style={{marginBottom:16}}><FL required hint="These exact descriptors are what companies use to describe their culture — overlap = culture match score.">What kind of culture are you looking for?</FL><CG options={CULTURE_DESCRIPTORS} values={d.targetCulture} onChange={v=>set(x=>({...x,targetCulture:v}))} columns={2}/><ErrMsg msg={errors?.targetCulture}/></div>
   <Div/>
-  <div style={{marginBottom:16}}><FL required>Preferred management style from your direct manager</FL><RG options={MGMT_STYLES} value={d.mgmtStyle} onChange={v=>set(x=>({...x,mgmtStyle:v}))}/></div>
+  <div style={{marginBottom:16}}><FL required>Preferred management style from your direct manager</FL><RG options={MGMT_STYLES} value={d.mgmtStyle} onChange={v=>set(x=>({...x,mgmtStyle:v}))}/><ErrMsg msg={errors?.mgmtStyle}/></div>
   <Div/>
-  <div style={{marginBottom:16}}><FL required>How do you prefer to receive feedback?</FL><RG options={['Real-time — as I go','Regular check-ins (weekly or bi-weekly)','Formal periodic reviews (quarterly)','Self-directed — I ask when I need it']} value={d.feedbackStyle} onChange={v=>set(x=>({...x,feedbackStyle:v}))}/></div>
+  <div style={{marginBottom:16}}><FL required>How do you prefer to receive feedback?</FL><RG options={['Real-time — as I go','Regular check-ins (weekly or bi-weekly)','Formal periodic reviews (quarterly)','Self-directed — I ask when I need it']} value={d.feedbackStyle} onChange={v=>set(x=>({...x,feedbackStyle:v}))}/><ErrMsg msg={errors?.feedbackStyle}/></div>
   <Div/>
   <div style={{marginBottom:16}}>
     <FL hint="Pick up to 3.">What motivates you most at work?</FL>
@@ -624,10 +633,10 @@ function S8({d,set}:SecProps){return<>
 </>;}
 
 // ── Section 9: Goals & Intentions ────────────────────────────────────────────
-function S9({d,set}:SecProps){return<>
+function S9({d,set,errors}:SecProps){return<>
   <ST section="Section 9 of 9" title="Career Goals & Intentions" sub="Understanding where you're headed helps us find roles that are a genuine step forward — not lateral moves you'll regret."/>
   <Div/>
-  <div style={{marginBottom:16}}><FL required>What&apos;s your primary goal right now?</FL><RG options={['Find a significantly better-paying role','Advance to a more senior position','Switch industries or functions entirely','Find better work-life balance / less demanding pace','Return to work after a career break','Find more stability and job security','Find more meaningful or mission-driven work','Start something of my own — exploring options','Still figuring it out — open to conversations']} value={d.primaryGoal} onChange={v=>set(x=>({...x,primaryGoal:v}))}/></div>
+  <div style={{marginBottom:16}}><FL required>What&apos;s your primary goal right now?</FL><RG options={['Find a significantly better-paying role','Advance to a more senior position','Switch industries or functions entirely','Find better work-life balance / less demanding pace','Return to work after a career break','Find more stability and job security','Find more meaningful or mission-driven work','Start something of my own — exploring options','Still figuring it out — open to conversations']} value={d.primaryGoal} onChange={v=>set(x=>({...x,primaryGoal:v}))}/><ErrMsg msg={errors?.primaryGoal}/></div>
   <Div/>
   <div style={{marginBottom:16}}><FL>Where do you see yourself in 3–5 years?</FL><RG options={['In a leadership or people management role','A deep subject-matter expert / senior individual contributor','Running my own business or freelancing full-time','Still growing within my current function and domain','I genuinely don\'t know yet — I\'m keeping options open']} value={d.fiveYear} onChange={v=>set(x=>({...x,fiveYear:v}))}/></div>
   <Div/>
@@ -677,6 +686,40 @@ const SECTIONS=[
   {label:'Work Style',Comp:S7},{label:'Personality',Comp:S8},{label:'Goals',Comp:S9},
 ];
 
+function validateSection(step:number,d:SurveyData):Record<string,string>{
+  const e:Record<string,string>={};
+  if(step===1){
+    if(!d.firstName.trim())e.firstName='First name is required';
+    if(!d.lastName.trim())e.lastName='Last name is required';
+    if(!d.email.trim())e.email='Email address is required';
+    if(!d.location.trim())e.location='City & state is required';
+    if(!d.zip.trim())e.zip='ZIP code is required';
+    if(!d.workAuth)e.workAuth='Please select your work authorization status';
+  }
+  if(step===4){
+    if(!d.empStatus)e.empStatus='Please select your current employment status';
+  }
+  if(step===5){
+    if(d.skills.length===0)e.skills='Add at least one skill';
+    if(!d.seniority)e.seniority='Please select your seniority level';
+  }
+  if(step===6){
+    if(d.targetTitles.length===0)e.targetTitles='Add at least one target job title';
+    if(!d.remotePreference)e.remotePreference='Please select your remote work preference';
+    if(d.employmentType.length===0)e.employmentType='Select at least one employment type';
+    if(!d.availability)e.availability='Please select your availability';
+  }
+  if(step===7){
+    if(d.targetCulture.length===0)e.targetCulture='Select at least one culture descriptor';
+    if(!d.mgmtStyle)e.mgmtStyle='Please select your preferred management style';
+    if(!d.feedbackStyle)e.feedbackStyle='Please select your preferred feedback style';
+  }
+  if(step===9){
+    if(!d.primaryGoal)e.primaryGoal='Please select your primary goal';
+  }
+  return e;
+}
+
 function deriveExpYears(jobs:WorkJob[]):number{
   const mos=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const now=new Date();
@@ -717,6 +760,7 @@ export default function ProfileSurvey(){
   const [done,setDone]=useState(false);
   const [isEdit,setIsEdit]=useState(false);
   const [autoSaved,setAutoSaved]=useState(false);
+  const [errors,setErrors]=useState<Record<string,string>>({});
   const total=SECTIONS.length;
   const isReview=step>total;
 
@@ -802,7 +846,14 @@ export default function ProfileSurvey(){
   // eslint-disable-next-line react-hooks/exhaustive-deps
   },[data]);
 
-  function go(n:number){setStep(n);window.scrollTo({top:0,behavior:'smooth'});}
+  function go(n:number){setErrors({});setStep(n);window.scrollTo({top:0,behavior:'smooth'});}
+
+  async function signOut(){
+    const uid=profile?.id??user?.id;
+    if(uid){try{localStorage.removeItem(`matcht_profile_draft_${uid}`);}catch{}}
+    await supabase.auth.signOut();
+    router.push('/');
+  }
 
   async function submit(){
     const uid=profile?.id??user?.id;
@@ -812,7 +863,7 @@ export default function ProfileSurvey(){
     try{
       const totalExp=deriveExpYears(data.jobs)||null;
       const upsertP=supabase.from('profiles').upsert({
-        id:uid,
+        id:uid,role:profile?.role??'seeker',
         name:`${data.firstName} ${data.lastName}`.trim(),
         first_name:data.firstName,last_name:data.lastName,
         phone:data.phone||null,location:data.location||null,zip:data.zip||null,
@@ -908,6 +959,7 @@ export default function ProfileSurvey(){
           {autoSaved&&<span style={{fontSize:11,color:C.green,fontWeight:600,fontFamily:F}}>✓ Saved</span>}
           {saveError&&<span style={{fontSize:11,color:C.amber,fontWeight:600,fontFamily:F}}>⚠ Not saved</span>}
           <span style={{fontSize:12,color:C.gray600,fontWeight:500,fontFamily:F}}>{isReview?'Review & submit':`${step} of ${total} · ${SECTIONS[step-1]?.label}`}</span>
+          <button onClick={signOut} style={{fontSize:12,color:C.gray600,background:'none',border:`1px solid ${C.border}`,borderRadius:6,padding:'4px 10px',cursor:'pointer',fontFamily:F,fontWeight:500,whiteSpace:'nowrap'}}>Sign out</button>
         </div>
       </div>
 
@@ -928,7 +980,8 @@ export default function ProfileSurvey(){
       <div style={{maxWidth:680,margin:'28px auto 0',padding:'0 16px'}}>
         <Progress step={step-1} total={total} sections={SECTIONS}/>
         <Card style={{marginBottom:14}}>
-          {isReview?<ReviewScreen data={data}/>:SecComp?<SecComp d={data} set={setData}/>:null}
+          {!isReview&&Object.keys(errors).length>0&&<div style={{background:C.redDim,border:`1px solid ${C.red}`,borderRadius:9,padding:'12px 16px',marginBottom:20,fontSize:13,color:C.red,fontFamily:F,fontWeight:600}}>Please fill in the required fields highlighted below.</div>}
+          {isReview?<ReviewScreen data={data}/>:SecComp?<SecComp d={data} set={setData} errors={errors}/>:null}
         </Card>
 
         {saveError&&<div style={{background:C.amberDim,border:`1px solid ${C.amber}`,borderRadius:9,padding:'12px 16px',marginBottom:12,fontSize:13,color:C.amber,fontFamily:F,fontWeight:600}}>{saveError}</div>}
@@ -937,7 +990,7 @@ export default function ProfileSurvey(){
         <div style={{display:'flex',gap:10}}>
           {step>1&&<button onClick={()=>go(step-1)} style={{flex:1,padding:'13px 0',borderRadius:9,background:C.white,border:`1.5px solid ${C.border}`,color:C.gray600,fontWeight:600,fontSize:14,cursor:'pointer',fontFamily:F}}>← Back</button>}
           {!isReview
-            ?<button onClick={()=>go(step+1)} style={{flex:2,padding:'13px 0',borderRadius:9,background:C.teal,color:C.white,border:'none',fontWeight:700,fontSize:15,cursor:'pointer',fontFamily:F,boxShadow:`0 2px 12px ${C.teal}44`}}>
+            ?<button onClick={()=>{const errs=validateSection(step,data);if(Object.keys(errs).length>0){setErrors(errs);window.scrollTo({top:0,behavior:'smooth'});return;}go(step+1);}} style={{flex:2,padding:'13px 0',borderRadius:9,background:C.teal,color:C.white,border:'none',fontWeight:700,fontSize:15,cursor:'pointer',fontFamily:F,boxShadow:`0 2px 12px ${C.teal}44`}}>
                 {step<total?'Continue →':'Review my profile →'}
               </button>
             :<button onClick={submit} disabled={saving} style={{flex:2,padding:'13px 0',borderRadius:9,background:saving?C.gray400:C.teal,color:C.white,border:'none',fontWeight:700,fontSize:15,cursor:saving?'not-allowed':'pointer',fontFamily:F,boxShadow:saving?'none':`0 2px 12px ${C.teal}44`}}>
