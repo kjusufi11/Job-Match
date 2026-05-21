@@ -403,9 +403,8 @@ export default function RecruiterPost(){
       weight_location:data.weights.location??2,
       weight_availability:data.weights.availability??2,
       weight_work_style:data.weights.workStyle??3,
-      // Legacy weight columns (keep in sync)
-      weight_personality:data.weights.culture??3,
-      weight_industry:data.weights.skills??3,
+      weight_personality:2,
+      weight_industry:2,
       other_notes:data.otherNotes||null,
     }).select('id').single();
 
