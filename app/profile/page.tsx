@@ -1,477 +1,401 @@
 'use client';
-import { useState, useEffect, useMemo, CSSProperties } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@/app/providers';
 import { createClient } from '@/lib/supabase/client';
+import {
+  INDUSTRIES, CULTURE_DESCRIPTORS, EMPLOYMENT_TYPES, MGMT_STYLES, TRAVEL_LEVELS,
+  SKILL_SUGGESTIONS, UNIVERSITIES, TITLE_SUGGESTIONS, EDUCATION_LEVELS_SEEKER,
+  PERSONALITY_DIMS_SEEKER,
+} from '@/lib/constants';
 
-// ── Design tokens (match rest of app) ─────────────────────────────────────
+// ── Design tokens ──────────────────────────────────────────────────────────────
 const C = {
-  bg:'#F0F4F7', white:'#FFFFFF', teal:'#1A8C8C', tealDark:'#116060',
-  tealDim:'#1A8C8C12', tealBorder:'#1A8C8C35',
-  slate:'#1E2D3A', gray100:'#E3ECF1', gray200:'#C8D8E4',
-  gray400:'#8FAABB', gray600:'#4E6475', gray800:'#2B3D4D',
-  border:'#D4E3EC', green:'#19A87A', red:'#C0392B',
+  bg:'#F0F4F7',white:'#FFFFFF',teal:'#1A8C8C',tealDim:'#1A8C8C12',tealBorder:'#1A8C8C35',
+  slate:'#1E2D3A',gray100:'#E3ECF1',gray200:'#C8D8E4',gray400:'#8FAABB',gray600:'#4E6475',
+  gray800:'#2B3D4D',border:'#D4E3EC',green:'#19A87A',greenDim:'#19A87A14',
+  amber:'#C9870C',amberDim:'#C9870C14',red:'#C0392B',redDim:'#C0392B14',
 };
 const F = "'Plus Jakarta Sans','Helvetica Neue',sans-serif";
 
-// ── Option lists ──────────────────────────────────────────────────────────
-const ALL_INDUSTRIES = [
-  'Accounting & Tax','Advertising & PR','Agriculture & Farming','Architecture & Design',
-  'Automotive','Aviation & Aerospace','Banking & Financial Services','Biotechnology',
-  'Cannabis','Chemical Manufacturing','Clean Energy & Sustainability','Construction',
-  'Consulting & Professional Services','Consumer Goods','Cybersecurity','Data & Analytics',
-  'Defense & Military','E-commerce','Education & EdTech','Energy & Utilities',
-  'Engineering','Entertainment & Media','Environmental Services','Fashion & Apparel',
-  'Film & TV Production','FinTech','Food & Beverage','Gaming','Government & Public Sector',
-  'Healthcare — Clinical','Healthcare — Admin & Operations','Healthcare Technology',
-  'Hospitality & Tourism','Human Resources & Staffing','Insurance','Interior Design',
-  'Internet & Software','Investment Management','Legal Services','Logistics & Supply Chain',
-  'Manufacturing','Marketing & Growth','Mining & Natural Resources','Music & Audio',
-  'Non-profit & NGO','Pharmaceuticals','Photography & Visual Arts','Publishing & Journalism',
-  'Real Estate','Retail & Consumer','SaaS / Cloud','Security Services','Social Impact',
-  'Sports & Recreation','Telecommunications','Transportation','Venture Capital & Private Equity',
-  'Veterinary & Animal Services','Wellness & Fitness','Other',
-];
-const EDUCATION_OPTIONS = [
-  "High school diploma / GED","Some college (no degree)","Associate's degree",
-  "Bachelor's degree","Master's degree","MBA","JD / Law degree","MD / Medical degree",
-  "PhD or Doctorate","Vocational / Trade certification","Bootcamp or professional program",
-];
-const SOFT_SKILLS = [
-  'Active listening','Adaptability','Coaching & mentoring','Collaboration & teamwork',
-  'Communication','Conflict resolution','Creativity','Critical thinking','Decision-making',
-  'Emotional intelligence','Leadership','Negotiation','Presentation & public speaking',
-  'Problem-solving','Strategic thinking','Time management',
-];
-const TECH_SKILLS = [
-  'Accounting & financial software','Advanced Excel / Google Sheets','Cloud platforms (AWS, Azure, GCP)',
-  'CRM software (Salesforce, HubSpot)','Data analysis & BI tools (Tableau, Power BI)',
-  'ERP systems (SAP, Oracle)','Figma / Adobe Creative Suite','Google Workspace / Microsoft Office',
-  'Jira / Asana / Monday.com','Legal software (Clio, LexisNexis)','Marketing automation (Marketo, HubSpot)',
-  'Python or R','Recruiting & HRIS tools','Social media management','Software development & coding','SQL & databases',
-  'Video editing & production',
-];
-
-// ── Survey data shape ─────────────────────────────────────────────────────
+// ── Types ──────────────────────────────────────────────────────────────────────
+type Degree = { level:string; field:string; university:string; gradYear:string; current:boolean };
+type WorkJob = { company:string; title:string; startDate:string; endDate:string; current:boolean; responsibilities:string; accomplishments:string };
 type SurveyData = {
   firstName:string; lastName:string; email:string; phone:string; location:string; zip:string; workAuth:string; eeoc:string[];
-  education:string; major:string; university:string; certs:string; enrolled:string;
-  currentTitle:string; currentEmployer:string; totalExp:number; fieldExp:number; longestTenure:number;
-  industries:string[]; directReports:number; managedProjects:string; empStatus:string; gaps:string;
-  softSkills:string[]; techSkills:string[]; otherSkills:string; seniority:string;
-  targetTitles:string; salaryMin:number; salaryMax:number; remotePreference:string;
-  maxCommute:number; employmentType:string[]; availability:string; relocation:string;
-  relocationRegions:string; travel:string; companySize:string[]; targetIndustries:string[];
-  feedback:string; workStyle:string; pace:string; mgmtStyle:string; teamRole:string;
-  envPrefs:string[]; motivators:string[]; targetCulture:string[];
-  personality:Record<string,number>; commStyle:string; mistakeStyle:string;
-  primaryGoal:string; fiveYear:string; searchIntensity:string; otherInterviews:string;
-  stayReasons:string[]; personalNote:string;
+  degrees:Degree[]; certs:string;
+  jobs:WorkJob[]; gaps:string; empStatus:string;
+  skills:string[]; seniority:string; industries:string[];
+  targetTitles:string[]; idealSalary:number; minSalary:number;
+  remotePreference:string; maxCommute:number; employmentType:string[];
+  availability:string; relocation:string; relocationRegions:string; travel:string;
+  companySize:string[]; targetIndustries:string[];
+  targetCulture:string[]; mgmtStyle:string; feedbackStyle:string; motivators:string[];
+  personality:Record<string,number>;
+  primaryGoal:string; fiveYear:string; searchIntensity:string; stayReasons:string[]; personalNote:string;
 };
+type SetData = React.Dispatch<React.SetStateAction<SurveyData>>;
+type SecProps = { d:SurveyData; set:SetData };
 
+const BLANK_DEGREE: Degree = { level:'', field:'', university:'', gradYear:'', current:false };
+const BLANK_JOB: WorkJob = { company:'', title:'', startDate:'', endDate:'', current:false, responsibilities:'', accomplishments:'' };
 const INIT: SurveyData = {
   firstName:'',lastName:'',email:'',phone:'',location:'',zip:'',workAuth:'',eeoc:[],
-  education:'',major:'',university:'',certs:'',enrolled:'',
-  currentTitle:'',currentEmployer:'',totalExp:0,fieldExp:0,longestTenure:0,
-  industries:[],directReports:0,managedProjects:'',empStatus:'',gaps:'',
-  softSkills:[],techSkills:[],otherSkills:'',seniority:'',
-  targetTitles:'',salaryMin:60,salaryMax:150,remotePreference:'',
-  maxCommute:30,employmentType:[],availability:'',relocation:'',
-  relocationRegions:'',travel:'',companySize:[],targetIndustries:[],
-  feedback:'',workStyle:'',pace:'',mgmtStyle:'',teamRole:'',envPrefs:[],motivators:[],targetCulture:[],
-  personality:{},commStyle:'',mistakeStyle:'',
-  primaryGoal:'',fiveYear:'',searchIntensity:'',otherInterviews:'',stayReasons:[],personalNote:'',
+  degrees:[{...BLANK_DEGREE}],certs:'',
+  jobs:[{...BLANK_JOB}],gaps:'',empStatus:'',
+  skills:[],seniority:'',industries:[],
+  targetTitles:[],idealSalary:100,minSalary:80,
+  remotePreference:'',maxCommute:30,employmentType:[],
+  availability:'',relocation:'',relocationRegions:'',travel:'',
+  companySize:[],targetIndustries:[],
+  targetCulture:[],mgmtStyle:'',feedbackStyle:'',motivators:[],
+  personality:{},
+  primaryGoal:'',fiveYear:'',searchIntensity:'',stayReasons:[],personalNote:'',
 };
 
-// ── Shared sub-components ─────────────────────────────────────────────────
+// ── UI Primitives ─────────────────────────────────────────────────────────────
+function Card({children,style={}}:{children:React.ReactNode;style?:React.CSSProperties}){return<div style={{background:C.white,borderRadius:14,border:`1px solid ${C.border}`,padding:'24px 22px',...style}}>{children}</div>;}
 function SLabel({children}:{children:React.ReactNode}){return<div style={{fontSize:11,fontWeight:700,color:C.teal,textTransform:'uppercase',letterSpacing:1.4,marginBottom:5,fontFamily:F}}>{children}</div>;}
 function QLabel({children,required}:{children:React.ReactNode;required?:boolean}){return<div style={{fontSize:15,fontWeight:600,color:C.slate,marginBottom:8,fontFamily:F,lineHeight:1.4}}>{children}{required&&<span style={{color:C.red,marginLeft:3}}>*</span>}</div>;}
-function Sub({children}:{children:React.ReactNode}){return<div style={{fontSize:13,color:C.gray600,marginBottom:11,fontFamily:F,lineHeight:1.5}}>{children}</div>;}
-function Divider(){return<div style={{borderTop:`1px solid ${C.border}`,margin:'22px 0'}}/>;}
+function Sub({children}:{children:React.ReactNode}){return<div style={{fontSize:13,color:C.gray600,marginBottom:10,fontFamily:F,lineHeight:1.5}}>{children}</div>;}
+function Divider(){return<div style={{borderTop:`1px solid ${C.border}`,margin:'20px 0'}}/>;}
+function FInput({value,onChange,placeholder,type='text',style={}}:{value:string;onChange:(v:string)=>void;placeholder?:string;type?:string;style?:React.CSSProperties}){return<input type={type} value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} style={{width:'100%',padding:'10px 13px',borderRadius:8,background:C.bg,border:`1.5px solid ${C.border}`,color:C.slate,fontSize:14,outline:'none',boxSizing:'border-box',fontFamily:F,...style}}/>;}
+function FTextarea({value,onChange,placeholder,rows=3}:{value:string;onChange:(v:string)=>void;placeholder?:string;rows?:number}){return<textarea value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} rows={rows} style={{width:'100%',padding:'10px 13px',borderRadius:8,background:C.bg,border:`1.5px solid ${C.border}`,color:C.slate,fontSize:14,outline:'none',boxSizing:'border-box' as const,fontFamily:F,resize:'vertical',lineHeight:1.55}}/>;}
+function FSelect({value,onChange,options,placeholder}:{value:string;onChange:(v:string)=>void;options:string[];placeholder?:string}){return<select value={value} onChange={e=>onChange(e.target.value)} style={{width:'100%',padding:'10px 13px',borderRadius:8,background:C.bg,border:`1.5px solid ${C.border}`,color:value?C.slate:C.gray400,fontSize:14,outline:'none',boxSizing:'border-box' as const,fontFamily:F,cursor:'pointer'}}><option value="">{placeholder||'Select...'}</option>{options.map(o=><option key={o} value={o}>{o}</option>)}</select>;}
+function RadioGroup({options,value,onChange}:{options:string[];value:string;onChange:(v:string)=>void}){return<div style={{display:'flex',flexDirection:'column',gap:7}}>{options.map(o=><button key={o} onClick={()=>onChange(o)} style={{background:value===o?C.tealDim:C.bg,border:`1.5px solid ${value===o?C.teal:C.border}`,borderRadius:8,padding:'10px 13px',color:value===o?C.teal:C.gray600,fontWeight:value===o?600:400,fontSize:13,cursor:'pointer',textAlign:'left',fontFamily:F,transition:'all .15s'}}>{o}</button>)}</div>;}
+function MultiPill({options,values,onChange,max}:{options:string[];values:string[];onChange:(v:string[])=>void;max?:number}){function toggle(v:string){if(values.includes(v))onChange(values.filter(x=>x!==v));else if(!max||values.length<max)onChange([...values,v]);}return<div style={{display:'flex',flexWrap:'wrap',gap:7}}>{options.map(o=><button key={o} onClick={()=>toggle(o)} style={{padding:'6px 13px',borderRadius:20,background:values.includes(o)?C.tealDim:C.bg,border:`1.5px solid ${values.includes(o)?C.teal:C.border}`,color:values.includes(o)?C.teal:C.gray600,fontWeight:values.includes(o)?700:400,fontSize:13,cursor:'pointer',fontFamily:F,transition:'all .15s'}}>{o}</button>)}</div>;}
 
-function FInput({value,onChange,placeholder,type='text'}:{value:string;onChange:(v:string)=>void;placeholder?:string;type?:string}){
-  const s:CSSProperties={width:'100%',padding:'10px 13px',borderRadius:8,background:C.bg,border:`1.5px solid ${C.border}`,color:C.slate,fontSize:14,outline:'none',boxSizing:'border-box',fontFamily:F};
-  return<input type={type} value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} style={s}/>;
-}
-function FTextarea({value,onChange,placeholder,rows=3}:{value:string;onChange:(v:string)=>void;placeholder?:string;rows?:number}){
-  return<textarea value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} rows={rows} style={{width:'100%',padding:'10px 13px',borderRadius:8,background:C.bg,border:`1.5px solid ${C.border}`,color:C.slate,fontSize:14,outline:'none',boxSizing:'border-box',fontFamily:F,resize:'vertical',lineHeight:1.55}}/>;
-}
-function FSelect({value,onChange,options,placeholder}:{value:string;onChange:(v:string)=>void;options:string[];placeholder?:string}){
-  return<select value={value} onChange={e=>onChange(e.target.value)} style={{width:'100%',padding:'10px 13px',borderRadius:8,background:C.bg,border:`1.5px solid ${C.border}`,color:value?C.slate:C.gray400,fontSize:14,outline:'none',boxSizing:'border-box',fontFamily:F,cursor:'pointer'}}>
-    <option value="">{placeholder||'Select...'}</option>
-    {options.map(o=><option key={o} value={o}>{o}</option>)}
-  </select>;
-}
-
-function MultiDropdown({options,values,onChange,placeholder}:{options:string[];values:string[];onChange:(v:string[])=>void;placeholder?:string}){
+function MultiDropdown({options,values,onChange,placeholder,max}:{options:string[];values:string[];onChange:(v:string[])=>void;placeholder?:string;max?:number}){
   const [open,setOpen]=useState(false);
   const [search,setSearch]=useState('');
   const filtered=options.filter(o=>o.toLowerCase().includes(search.toLowerCase()));
-  function toggle(o:string){onChange(values.includes(o)?values.filter(x=>x!==o):[...values,o]);}
+  function toggle(o:string){if(values.includes(o))onChange(values.filter(x=>x!==o));else if(!max||values.length<max)onChange([...values,o]);}
   return<div style={{position:'relative'}}>
-    <div onClick={()=>setOpen(o=>!o)} style={{minHeight:42,padding:'8px 13px',borderRadius:8,background:C.bg,border:`1.5px solid ${open?C.teal:C.border}`,cursor:'pointer',display:'flex',flexWrap:'wrap',gap:5,alignItems:'center',transition:'border .15s'}}>
+    <div onClick={()=>setOpen(o=>!o)} style={{minHeight:42,padding:'8px 13px',borderRadius:8,background:C.bg,border:`1.5px solid ${open?C.teal:C.border}`,cursor:'pointer',display:'flex',flexWrap:'wrap',gap:5,alignItems:'center'}}>
       {values.length===0&&<span style={{color:C.gray400,fontSize:14,fontFamily:F}}>{placeholder}</span>}
-      {values.map(v=><span key={v} style={{background:C.tealDim,border:`1px solid ${C.tealBorder}`,color:C.teal,borderRadius:12,padding:'2px 9px',fontSize:12,fontWeight:600,fontFamily:F,display:'flex',alignItems:'center',gap:4}}>
-        {v}<span onClick={e=>{e.stopPropagation();toggle(v);}} style={{cursor:'pointer',fontWeight:700,fontSize:13}}>×</span>
-      </span>)}
+      {values.map(v=><span key={v} style={{background:C.tealDim,border:`1px solid ${C.tealBorder}`,color:C.teal,borderRadius:12,padding:'2px 9px',fontSize:12,fontWeight:600,fontFamily:F,display:'flex',alignItems:'center',gap:4}}>{v}<span onClick={e=>{e.stopPropagation();toggle(v);}} style={{cursor:'pointer',fontWeight:700}}>×</span></span>)}
       <span style={{marginLeft:'auto',color:C.gray400,fontSize:11}}>{open?'▲':'▼'}</span>
     </div>
-    {open&&<div style={{position:'absolute',top:'100%',left:0,right:0,background:C.white,border:`1.5px solid ${C.teal}`,borderRadius:8,marginTop:4,zIndex:50,boxShadow:'0 4px 20px rgba(0,0,0,0.1)',maxHeight:260,display:'flex',flexDirection:'column'}}>
-      <div style={{padding:'8px 10px',borderBottom:`1px solid ${C.border}`}}>
-        <input autoFocus value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search..." style={{width:'100%',padding:'6px 10px',borderRadius:6,background:C.bg,border:`1px solid ${C.border}`,color:C.slate,fontSize:13,outline:'none',boxSizing:'border-box' as const,fontFamily:F}}/>
-      </div>
+    {open&&<div style={{position:'absolute',top:'100%',left:0,right:0,background:C.white,border:`1.5px solid ${C.teal}`,borderRadius:8,marginTop:4,zIndex:50,boxShadow:'0 4px 20px rgba(0,0,0,0.1)',maxHeight:240,display:'flex',flexDirection:'column'}}>
+      <div style={{padding:'8px 10px',borderBottom:`1px solid ${C.border}`}}><input autoFocus value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search..." style={{width:'100%',padding:'6px 10px',borderRadius:6,background:C.bg,border:`1px solid ${C.border}`,color:C.slate,fontSize:13,outline:'none',boxSizing:'border-box' as const,fontFamily:F}}/></div>
       <div style={{overflowY:'auto',flex:1}}>
         {filtered.map(o=><div key={o} onClick={()=>toggle(o)} style={{padding:'9px 14px',cursor:'pointer',display:'flex',alignItems:'center',gap:9,background:values.includes(o)?C.tealDim:'none'}}>
-          <div style={{width:16,height:16,borderRadius:4,border:`1.5px solid ${values.includes(o)?C.teal:C.gray200}`,background:values.includes(o)?C.teal:'none',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-            {values.includes(o)&&<span style={{color:C.white,fontSize:10,fontWeight:800}}>✓</span>}
-          </div>
+          <div style={{width:16,height:16,borderRadius:4,border:`1.5px solid ${values.includes(o)?C.teal:C.gray200}`,background:values.includes(o)?C.teal:'none',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>{values.includes(o)&&<span style={{color:C.white,fontSize:10,fontWeight:800}}>✓</span>}</div>
           <span style={{fontSize:13,color:values.includes(o)?C.teal:C.slate,fontWeight:values.includes(o)?600:400,fontFamily:F}}>{o}</span>
         </div>)}
-        {filtered.length===0&&<div style={{padding:'14px',color:C.gray400,fontSize:13,textAlign:'center',fontFamily:F}}>No results</div>}
+        {filtered.length===0&&<div style={{padding:'14px',color:C.gray400,fontSize:13,textAlign:'center',fontFamily:F}}>No results — type to add custom</div>}
       </div>
     </div>}
   </div>;
 }
 
-function RadioGroup({options,value,onChange}:{options:string[];value:string;onChange:(v:string)=>void}){
-  return<div style={{display:'flex',flexDirection:'column',gap:7}}>
-    {options.map(o=><button key={o} onClick={()=>onChange(o)} style={{background:value===o?C.tealDim:C.bg,border:`1.5px solid ${value===o?C.teal:C.border}`,borderRadius:8,padding:'10px 13px',color:value===o?C.teal:C.gray600,fontWeight:value===o?600:400,fontSize:13,cursor:'pointer',textAlign:'left',fontFamily:F,transition:'all .15s'}}>{o}</button>)}
-  </div>;
-}
-
-function MultiPill({options,values,onChange,max}:{options:string[];values:string[];onChange:(v:string[])=>void;max?:number}){
-  function toggle(v:string){
-    if(values.includes(v))onChange(values.filter(x=>x!==v));
-    else if(!max||values.length<max)onChange([...values,v]);
-  }
-  return<div style={{display:'flex',flexWrap:'wrap',gap:7}}>
-    {options.map(o=><button key={o} onClick={()=>toggle(o)} style={{padding:'6px 13px',borderRadius:20,background:values.includes(o)?C.tealDim:C.bg,border:`1.5px solid ${values.includes(o)?C.teal:C.border}`,color:values.includes(o)?C.teal:C.gray600,fontWeight:values.includes(o)?700:400,fontSize:13,cursor:'pointer',fontFamily:F,transition:'all .15s'}}>{o}</button>)}
-  </div>;
-}
-
-function MaxSlider({value,onChange,min,max,step=1,format}:{value:number;onChange:(v:number)=>void;min:number;max:number;step?:number;format:(v:number)=>string}){
-  return<div>
-    <input type="range" min={min} max={max} step={step} value={value} onChange={e=>onChange(+e.target.value)} style={{width:'100%',accentColor:C.teal}}/>
-    <div style={{display:'flex',justifyContent:'space-between',marginTop:3}}>
-      <span style={{fontSize:12,color:C.gray400,fontFamily:F}}>{format(min)}</span>
-      <span style={{fontSize:14,fontWeight:800,color:C.teal,fontFamily:F}}>{format(value)}</span>
-      <span style={{fontSize:12,color:C.gray400,fontFamily:F}}>{format(max)}</span>
+function TagInput({values,onChange,suggestions,placeholder,max}:{values:string[];onChange:(v:string[])=>void;suggestions:string[];placeholder?:string;max?:number}){
+  const [input,setInput]=useState('');
+  const [showSug,setShowSug]=useState(false);
+  const filtered=input.length>1?suggestions.filter(s=>s.toLowerCase().includes(input.toLowerCase())&&!values.includes(s)).slice(0,8):[];
+  function add(val:string){const v=val.trim();if(!v||values.includes(v)||(max&&values.length>=max))return;onChange([...values,v]);setInput('');setShowSug(false);}
+  function remove(v:string){onChange(values.filter(x=>x!==v));}
+  return<div style={{position:'relative'}}>
+    <div style={{minHeight:44,padding:'6px 10px',borderRadius:8,background:C.bg,border:`1.5px solid ${C.border}`,display:'flex',flexWrap:'wrap',gap:5,alignItems:'center',cursor:'text'}} onClick={()=>document.getElementById('tag-input')?.focus()}>
+      {values.map(v=><span key={v} style={{background:C.tealDim,border:`1px solid ${C.tealBorder}`,color:C.teal,borderRadius:12,padding:'3px 10px',fontSize:12,fontWeight:600,fontFamily:F,display:'flex',alignItems:'center',gap:4}}>{v}<span onClick={()=>remove(v)} style={{cursor:'pointer',fontWeight:700,fontSize:13}}>×</span></span>)}
+      <input id="tag-input" value={input} onChange={e=>{setInput(e.target.value);setShowSug(true);}} onKeyDown={e=>{if(e.key==='Enter'||e.key===','){e.preventDefault();add(input);}if(e.key==='Backspace'&&!input&&values.length){remove(values[values.length-1]);}}} onFocus={()=>setShowSug(true)} placeholder={values.length===0?placeholder:''} style={{border:'none',outline:'none',background:'none',fontSize:13,color:C.slate,fontFamily:F,minWidth:120,flex:1}}/>
     </div>
+    {showSug&&filtered.length>0&&<div style={{position:'absolute',top:'100%',left:0,right:0,background:C.white,border:`1.5px solid ${C.teal}`,borderRadius:8,marginTop:3,zIndex:50,boxShadow:'0 4px 16px rgba(0,0,0,0.1)'}}>
+      {filtered.map(s=><div key={s} onClick={()=>add(s)} style={{padding:'9px 14px',cursor:'pointer',fontSize:13,color:C.slate,fontFamily:F}}>{s}</div>)}
+      {input.length>1&&!suggestions.includes(input)&&<div onClick={()=>add(input)} style={{padding:'9px 14px',cursor:'pointer',fontSize:13,color:C.teal,fontWeight:600,fontFamily:F,borderTop:`1px solid ${C.border}`}}>+ Add "{input}"</div>}
+    </div>}
   </div>;
 }
 
-function RangeSlider({minVal,maxVal,onMin,onMax,min,max,step=1,format}:{minVal:number;maxVal:number;onMin:(v:number)=>void;onMax:(v:number)=>void;min:number;max:number;step?:number;format:(v:number)=>string}){
-  return<div style={{display:'flex',gap:18}}>
-    <div style={{flex:1}}>
-      <div style={{fontSize:11,color:C.gray600,marginBottom:4,fontFamily:F}}>Minimum</div>
-      <input type="range" min={min} max={max} step={step} value={minVal} onChange={e=>onMin(Math.min(+e.target.value,maxVal-step))} style={{width:'100%',accentColor:C.teal}}/>
-      <div style={{fontSize:14,fontWeight:800,color:C.teal,marginTop:3,fontFamily:F}}>{format(minVal)}</div>
-    </div>
-    <div style={{flex:1}}>
-      <div style={{fontSize:11,color:C.gray600,marginBottom:4,fontFamily:F}}>Maximum</div>
-      <input type="range" min={min} max={max} step={step} value={maxVal} onChange={e=>onMax(Math.max(+e.target.value,minVal+step))} style={{width:'100%',accentColor:C.teal}}/>
-      <div style={{fontSize:14,fontWeight:800,color:C.teal,marginTop:3,fontFamily:F}}>{format(maxVal)}</div>
-    </div>
+function AutocompleteInput({value,onChange,suggestions,placeholder}:{value:string;onChange:(v:string)=>void;suggestions:string[];placeholder?:string}){
+  const [input,setInput]=useState(value||'');
+  const [show,setShow]=useState(false);
+  const filtered=input.length>1?suggestions.filter(s=>s.toLowerCase().includes(input.toLowerCase())).slice(0,8):[];
+  function select(v:string){setInput(v);onChange(v);setShow(false);}
+  return<div style={{position:'relative'}}>
+    <input value={input} onChange={e=>{setInput(e.target.value);onChange(e.target.value);setShow(true);}} onFocus={()=>setShow(true)} placeholder={placeholder} style={{width:'100%',padding:'10px 13px',borderRadius:8,background:C.bg,border:`1.5px solid ${C.border}`,color:C.slate,fontSize:14,outline:'none',boxSizing:'border-box' as const,fontFamily:F}}/>
+    {show&&filtered.length>0&&<div style={{position:'absolute',top:'100%',left:0,right:0,background:C.white,border:`1.5px solid ${C.teal}`,borderRadius:8,marginTop:3,zIndex:50,boxShadow:'0 4px 16px rgba(0,0,0,0.1)',maxHeight:200,overflowY:'auto'}}>
+      {filtered.map(s=><div key={s} onClick={()=>select(s)} style={{padding:'9px 14px',cursor:'pointer',fontSize:13,color:C.slate,fontFamily:F}}>{s}</div>)}
+    </div>}
   </div>;
 }
 
-function ScaleQ({question,low,high,value,onChange}:{question:string;low:string;high:string;value:number;onChange:(v:number)=>void}){
-  return<div style={{marginBottom:20}}>
-    <div style={{fontSize:14,fontWeight:500,color:C.slate,marginBottom:8,fontFamily:F,lineHeight:1.45}}>{question}</div>
-    <div style={{display:'flex',alignItems:'center',gap:8}}>
-      <span style={{fontSize:11,color:C.gray600,width:100,flexShrink:0,lineHeight:1.3}}>{low}</span>
-      <div style={{display:'flex',gap:6,flex:1}}>
-        {[1,2,3,4,5].map(n=><button key={n} onClick={()=>onChange(n)} style={{flex:1,height:36,borderRadius:7,border:`1.5px solid ${value===n?C.teal:C.border}`,background:value===n?C.teal:C.bg,color:value===n?C.white:C.gray600,fontWeight:700,fontSize:13,cursor:'pointer',fontFamily:F,transition:'all .15s'}}>{n}</button>)}
+function ScaleQ({question,low,high,value,onChange}:{question:string;low:string;high:string;value:number|undefined;onChange:(v:number)=>void}){return<div style={{marginBottom:20}}>
+  <div style={{fontSize:14,fontWeight:500,color:C.slate,marginBottom:8,fontFamily:F,lineHeight:1.45}}>{question}</div>
+  <div style={{display:'flex',alignItems:'center',gap:8}}>
+    <span style={{fontSize:11,color:C.gray600,width:110,flexShrink:0,lineHeight:1.3}}>{low}</span>
+    <div style={{display:'flex',gap:6,flex:1}}>{[1,2,3,4,5].map(n=><button key={n} onClick={()=>onChange(n)} style={{flex:1,height:36,borderRadius:7,border:`1.5px solid ${value===n?C.teal:C.border}`,background:value===n?C.teal:C.bg,color:value===n?C.white:C.gray600,fontWeight:700,fontSize:13,cursor:'pointer',fontFamily:F,transition:'all .15s'}}>{n}</button>)}</div>
+    <span style={{fontSize:11,color:C.gray600,width:110,flexShrink:0,textAlign:'right',lineHeight:1.3}}>{high}</span>
+  </div>
+</div>;}
+
+function MaxSlider({value,onChange,min,max,step=1,format}:{value:number;onChange:(v:number)=>void;min:number;max:number;step?:number;format:(v:number)=>string}){return<div><input type="range" min={min} max={max} step={step} value={value} onChange={e=>onChange(+e.target.value)} style={{width:'100%',accentColor:C.teal}}/><div style={{display:'flex',justifyContent:'space-between',marginTop:3}}><span style={{fontSize:12,color:C.gray400,fontFamily:F}}>{format(min)}</span><span style={{fontSize:14,fontWeight:800,color:C.teal,fontFamily:F}}>{format(value)}</span><span style={{fontSize:12,color:C.gray400,fontFamily:F}}>{format(max)}</span></div></div>;}
+
+function Progress({step,total}:{step:number;total:number}){const pct=Math.round(((step+1)/(total+1))*100);return<div style={{marginBottom:22}}><div style={{display:'flex',justifyContent:'space-between',marginBottom:6}}><span style={{fontSize:12,color:C.gray600,fontFamily:F}}>{step<total?`Section ${step+1} of ${total}`:'Review'}</span><span style={{fontSize:12,fontWeight:700,color:C.teal,fontFamily:F}}>{pct}% complete</span></div><div style={{height:5,background:C.gray100,borderRadius:3}}><div style={{width:`${pct}%`,height:'100%',borderRadius:3,background:C.teal,transition:'width .4s'}}/></div></div>;}
+
+function RepeatBlock({children,onRemove,canRemove}:{children:React.ReactNode;onRemove:()=>void;canRemove:boolean}){return<div style={{background:C.bg,borderRadius:10,border:`1px solid ${C.border}`,padding:'16px 16px 10px',marginBottom:10,position:'relative'}}>
+  {canRemove&&<button onClick={onRemove} style={{position:'absolute',top:10,right:12,background:'none',border:'none',color:C.gray400,fontSize:18,cursor:'pointer',lineHeight:1}}>×</button>}
+  {children}
+</div>;}
+
+// ── Step 0: Resume Upload ──────────────────────────────────────────────────────
+function ResumeUpload({onSkip}:{onSkip:()=>void}){
+  const [dragging,setDragging]=useState(false);
+  const [file,setFile]=useState<File|null>(null);
+  const ref=useRef<HTMLInputElement>(null);
+  function handleFile(f:File|null){if(f&&(f.type==='application/pdf'||f.name.endsWith('.docx'))){setFile(f);}}
+  return<div style={{background:C.bg,minHeight:'100vh',fontFamily:F,display:'flex',alignItems:'center',justifyContent:'center',padding:24}}>
+    <div style={{maxWidth:520,width:'100%'}}>
+      <div style={{textAlign:'center',marginBottom:32}}>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:8,marginBottom:20}}>
+          <div style={{width:28,height:28,borderRadius:6,background:C.teal,display:'flex',alignItems:'center',justifyContent:'center',fontWeight:800,fontSize:12,color:C.white}}>M</div>
+          <span style={{fontWeight:800,fontSize:16,color:C.slate,letterSpacing:-0.3}}>Matcht</span>
+        </div>
+        <h1 style={{fontSize:28,fontWeight:800,color:C.slate,margin:'0 0 10px',letterSpacing:-0.5,lineHeight:1.2}}>Got a resume?<br/>Let's use it one last time.</h1>
+        <p style={{fontSize:15,color:C.gray600,margin:'0 auto',lineHeight:1.65,maxWidth:400}}>Upload it and we'll pre-fill your profile automatically. After this, you'll never need a resume again — your Matcht profile does the work for you.</p>
       </div>
-      <span style={{fontSize:11,color:C.gray600,width:100,flexShrink:0,textAlign:'right',lineHeight:1.3}}>{high}</span>
+      <Card>
+        <div onDragOver={e=>{e.preventDefault();setDragging(true);}} onDragLeave={()=>setDragging(false)} onDrop={e=>{e.preventDefault();setDragging(false);handleFile(e.dataTransfer.files[0]??null);}} onClick={()=>ref.current?.click()} style={{border:`2px dashed ${dragging?C.teal:C.gray200}`,borderRadius:12,padding:'40px 24px',textAlign:'center',cursor:'pointer',background:dragging?C.tealDim:C.bg,transition:'all .2s'}}>
+          <input ref={ref} type="file" accept=".pdf,.docx" onChange={e=>handleFile(e.target.files?.[0]??null)} style={{display:'none'}}/>
+          {file?<><div style={{fontSize:36,marginBottom:8}}>📄</div><div style={{fontWeight:700,fontSize:15,color:C.teal,marginBottom:4}}>{file.name}</div><div style={{fontSize:13,color:C.gray400}}>Ready to upload</div></>:<><div style={{fontSize:36,marginBottom:8}}>📎</div><div style={{fontWeight:600,fontSize:15,color:C.slate,marginBottom:6}}>Drop your resume here</div><div style={{fontSize:13,color:C.gray400,marginBottom:12}}>or click to browse</div><div style={{fontSize:12,color:C.gray400}}>PDF or Word doc · Max 10MB</div></>}
+        </div>
+        {file&&<button onClick={onSkip} style={{width:'100%',padding:'12px 0',borderRadius:8,background:C.teal,color:C.white,border:'none',fontWeight:700,fontSize:14,cursor:'pointer',fontFamily:F,marginTop:12}}>Pre-fill my profile →</button>}
+        <button onClick={onSkip} style={{width:'100%',padding:'10px 0',borderRadius:8,background:'none',border:`1.5px solid ${C.border}`,color:C.gray600,fontWeight:600,fontSize:13,cursor:'pointer',fontFamily:F,marginTop:8}}>{file?'Skip — I\'ll fill it in manually':'I don\'t have a resume — start fresh'}</button>
+      </Card>
+      <p style={{textAlign:'center',fontSize:12,color:C.gray400,marginTop:14,fontFamily:F}}>Your resume is used only to pre-fill your profile and is never shared with employers.</p>
     </div>
   </div>;
 }
 
-function ProgressBar({step,total}:{step:number;total:number}){
-  const pct=Math.round(((step+1)/(total+1))*100);
-  return<div style={{marginBottom:24}}>
-    <div style={{display:'flex',justifyContent:'space-between',marginBottom:6}}>
-      <span style={{fontSize:12,color:C.gray600,fontFamily:F}}>{step<total?`Section ${step+1} of ${total}`:'Review'}</span>
-      <span style={{fontSize:12,fontWeight:700,color:C.teal,fontFamily:F}}>{pct}% complete</span>
-    </div>
-    <div style={{height:5,background:C.gray100,borderRadius:3}}>
-      <div style={{width:`${pct}%`,height:'100%',borderRadius:3,background:C.teal,transition:'width .4s'}}/>
-    </div>
-  </div>;
-}
+// ── Sections ──────────────────────────────────────────────────────────────────
+function S1({d,set}:SecProps){return<>
+  <SLabel>Section 1</SLabel>
+  <h2 style={{fontSize:21,fontWeight:800,color:C.slate,margin:'0 0 3px',letterSpacing:-0.5,fontFamily:F}}>Basic Information</h2>
+  <Sub>The fundamentals. Used for location-based matching and contact.</Sub>
+  <Divider/>
+  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:12}}>
+    <div><QLabel required>First name</QLabel><FInput value={d.firstName} onChange={v=>set(x=>({...x,firstName:v}))} placeholder="Jane"/></div>
+    <div><QLabel required>Last name</QLabel><FInput value={d.lastName} onChange={v=>set(x=>({...x,lastName:v}))} placeholder="Smith"/></div>
+  </div>
+  <div style={{marginBottom:12}}><QLabel required>Email address</QLabel><FInput value={d.email} onChange={v=>set(x=>({...x,email:v}))} placeholder="jane@example.com" type="email"/></div>
+  <div style={{marginBottom:12}}><QLabel>Phone number</QLabel><FInput value={d.phone} onChange={v=>set(x=>({...x,phone:v}))} placeholder="+1 (555) 000-0000"/></div>
+  <div style={{display:'grid',gridTemplateColumns:'2fr 1fr',gap:12,marginBottom:12}}>
+    <div><QLabel required>City & state</QLabel><FInput value={d.location} onChange={v=>set(x=>({...x,location:v}))} placeholder="Chicago, IL"/></div>
+    <div><QLabel required>ZIP code</QLabel><FInput value={d.zip} onChange={v=>set(x=>({...x,zip:v}))} placeholder="60601"/></div>
+  </div>
+  <Divider/>
+  <QLabel required>Are you legally authorized to work in the United States?</QLabel>
+  <RadioGroup options={['Yes, without sponsorship','Yes, but I require sponsorship','No']} value={d.workAuth} onChange={v=>set(x=>({...x,workAuth:v}))}/>
+  <Divider/>
+  <QLabel>Veteran / disability status (optional)</QLabel>
+  <Sub>Used only for EEOC reporting. Has no effect on your match score.</Sub>
+  <MultiPill options={['U.S. Military Veteran','Person with a disability','Not a veteran / does not apply','Prefer not to answer']} values={d.eeoc} onChange={v=>set(x=>({...x,eeoc:v}))}/>
+</>;}
 
-// ── Section components ────────────────────────────────────────────────────
-function S1({d,set}:{d:SurveyData;set:React.Dispatch<React.SetStateAction<SurveyData>>}){
-  return<>
-    <SLabel>Section 1</SLabel>
-    <h2 style={{fontSize:21,fontWeight:800,color:C.slate,margin:'0 0 3px',letterSpacing:-0.5,fontFamily:F}}>Basic Information</h2>
-    <Sub>Fundamentals first. This helps us personalize your experience and surface the right roles.</Sub>
-    <Divider/>
-    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:12}}>
-      <div><QLabel required>First name</QLabel><FInput value={d.firstName} onChange={v=>set(x=>({...x,firstName:v}))} placeholder="Jane"/></div>
-      <div><QLabel required>Last name</QLabel><FInput value={d.lastName} onChange={v=>set(x=>({...x,lastName:v}))} placeholder="Smith"/></div>
-    </div>
-    <div style={{marginBottom:12}}><QLabel required>Email address</QLabel><FInput value={d.email} onChange={v=>set(x=>({...x,email:v}))} placeholder="jane@example.com" type="email"/></div>
-    <div style={{marginBottom:12}}><QLabel>Phone number</QLabel><FInput value={d.phone} onChange={v=>set(x=>({...x,phone:v}))} placeholder="+1 (555) 000-0000"/></div>
-    <div style={{display:'grid',gridTemplateColumns:'2fr 1fr',gap:12,marginBottom:12}}>
-      <div><QLabel required>City & state</QLabel><FInput value={d.location} onChange={v=>set(x=>({...x,location:v}))} placeholder="Chicago, IL"/></div>
-      <div><QLabel required>ZIP code</QLabel><FInput value={d.zip} onChange={v=>set(x=>({...x,zip:v}))} placeholder="60601"/></div>
-    </div>
-    <Divider/>
-    <QLabel required>Are you legally authorized to work in the United States?</QLabel>
-    <RadioGroup options={['Yes, without sponsorship','Yes, but I require sponsorship','No']} value={d.workAuth} onChange={v=>set(x=>({...x,workAuth:v}))}/>
-    <Divider/>
-    <QLabel>Veteran / disability status (optional)</QLabel>
-    <Sub>Used only for EEOC reporting. Has no effect on your match score.</Sub>
-    <MultiPill options={['U.S. Military Veteran','Person with a disability','Prefer not to answer']} values={d.eeoc} onChange={v=>set(x=>({...x,eeoc:v}))}/>
-  </>;
-}
-
-function S2({d,set}:{d:SurveyData;set:React.Dispatch<React.SetStateAction<SurveyData>>}){
-  const hasDegree=["Bachelor's degree","Master's degree","MBA","JD / Law degree","MD / Medical degree","PhD or Doctorate"].includes(d.education);
+function S2({d,set}:SecProps){
+  function addDegree(){set(x=>({...x,degrees:[...x.degrees,{...BLANK_DEGREE}]}));}
+  function updateDegree(i:number,field:keyof Degree,val:string|boolean){set(x=>({...x,degrees:x.degrees.map((deg,idx)=>idx===i?{...deg,[field]:val}:deg)}));}
+  function removeDegree(i:number){set(x=>({...x,degrees:x.degrees.filter((_,idx)=>idx!==i)}));}
+  const hasDegree=(level:string)=>["Bachelor's degree","Master's degree","MBA","JD / Law degree","MD / Medical degree","PhD or Doctorate","Associate's degree"].includes(level);
   return<>
     <SLabel>Section 2</SLabel>
     <h2 style={{fontSize:21,fontWeight:800,color:C.slate,margin:'0 0 3px',letterSpacing:-0.5,fontFamily:F}}>Education</h2>
-    <Sub>You don't need a degree to use Matcht — this is purely for matching accuracy.</Sub>
+    <Sub>Add all degrees and certifications. You don't need a degree to use Matcht — this is purely for matching accuracy.</Sub>
     <Divider/>
-    <QLabel required>Highest level of education completed</QLabel>
-    <FSelect value={d.education} onChange={v=>set(x=>({...x,education:v}))} options={EDUCATION_OPTIONS} placeholder="Select your education level..."/>
+    {d.degrees.map((deg,i)=><RepeatBlock key={i} onRemove={()=>removeDegree(i)} canRemove={d.degrees.length>1}>
+      <div style={{fontWeight:700,fontSize:13,color:C.teal,marginBottom:10,fontFamily:F}}>Degree {i+1}</div>
+      <div style={{marginBottom:10}}><QLabel>Level</QLabel><FSelect value={deg.level} onChange={v=>updateDegree(i,'level',v)} options={EDUCATION_LEVELS_SEEKER} placeholder="Select level..."/></div>
+      {hasDegree(deg.level)&&<>
+        <div style={{marginBottom:10}}><QLabel>Field of study / Major</QLabel><FInput value={deg.field} onChange={v=>updateDegree(i,'field',v)} placeholder="e.g. Computer Science, Finance, Marketing"/></div>
+        <div style={{marginBottom:10}}><QLabel>University or institution</QLabel><AutocompleteInput value={deg.university} onChange={v=>updateDegree(i,'university',v)} suggestions={UNIVERSITIES} placeholder="Start typing your school..."/></div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:6}}>
+          <div><QLabel>Graduation year</QLabel><FInput value={deg.gradYear} onChange={v=>updateDegree(i,'gradYear',v)} placeholder="e.g. 2018"/></div>
+          <div style={{paddingTop:28}}><label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer'}}><input type="checkbox" checked={deg.current} onChange={e=>updateDegree(i,'current',e.target.checked)} style={{accentColor:C.teal}}/><span style={{fontSize:13,color:C.slate,fontFamily:F}}>Currently enrolled</span></label></div>
+        </div>
+      </>}
+    </RepeatBlock>)}
+    <button onClick={addDegree} style={{width:'100%',padding:'10px 0',borderRadius:8,background:'none',border:`1.5px dashed ${C.teal}`,color:C.teal,fontWeight:600,fontSize:13,cursor:'pointer',fontFamily:F,marginBottom:16}}>+ Add another degree or certification</button>
     <Divider/>
-    {hasDegree&&<>
-      <div style={{marginBottom:12}}><QLabel>Field of study / Major</QLabel><FInput value={d.major} onChange={v=>set(x=>({...x,major:v}))} placeholder="e.g. Computer Science, Marketing, Finance"/></div>
-      <div style={{marginBottom:12}}><QLabel>University or institution</QLabel><FInput value={d.university} onChange={v=>set(x=>({...x,university:v}))} placeholder="e.g. University of Illinois"/></div>
-      <Divider/>
-    </>}
     <QLabel>Professional certifications or licenses</QLabel>
-    <Sub>Separate with commas.</Sub>
-    <FInput value={d.certs} onChange={v=>set(x=>({...x,certs:v}))} placeholder="e.g. PMP, CPA, AWS Solutions Architect, SHRM-CP"/>
-    <Divider/>
-    <QLabel>Currently enrolled in a degree or certification program?</QLabel>
-    <RadioGroup options={['Yes, full-time','Yes, part-time','No']} value={d.enrolled} onChange={v=>set(x=>({...x,enrolled:v}))}/>
-  </>;
-}
+    <Sub>Any not captured above — separate with commas.</Sub>
+    <FInput value={d.certs} onChange={v=>set(x=>({...x,certs:v}))} placeholder="e.g. PMP, CPA, AWS Solutions Architect, SHRM-CP, Series 7"/>
+  </>;}
 
-function S3({d,set}:{d:SurveyData;set:React.Dispatch<React.SetStateAction<SurveyData>>}){
-  const fmtYrs=(v:number)=>v>=20?'20+ yrs':`${v} yr${v===1?'':'s'}`;
-  const fmtReports=(v:number)=>v===0?'None':v>=50?'50+ reports':`${v} reports`;
+function S3({d,set}:SecProps){
+  function addJob(){set(x=>({...x,jobs:[...x.jobs,{...BLANK_JOB}]}));}
+  function updateJob(i:number,field:keyof WorkJob,val:string|boolean){set(x=>({...x,jobs:x.jobs.map((j,idx)=>idx===i?{...j,[field]:val}:j)}));}
+  function removeJob(i:number){set(x=>({...x,jobs:x.jobs.filter((_,idx)=>idx!==i)}));}
   return<>
     <SLabel>Section 3</SLabel>
     <h2 style={{fontSize:21,fontWeight:800,color:C.slate,margin:'0 0 3px',letterSpacing:-0.5,fontFamily:F}}>Work History</h2>
-    <Sub>Focus on your most recent and relevant experience.</Sub>
+    <Sub>Add your work experience starting with the most recent. This replaces a resume — be as thorough as you'd like.</Sub>
     <Divider/>
-    <div style={{marginBottom:12}}><QLabel required>Current or most recent job title</QLabel><FInput value={d.currentTitle} onChange={v=>set(x=>({...x,currentTitle:v}))} placeholder="e.g. Senior Product Manager"/></div>
-    <div style={{marginBottom:12}}><QLabel required>Current or most recent employer</QLabel><FInput value={d.currentEmployer} onChange={v=>set(x=>({...x,currentEmployer:v}))} placeholder="e.g. Acme Corp"/></div>
+    {d.jobs.map((job,i)=><RepeatBlock key={i} onRemove={()=>removeJob(i)} canRemove={d.jobs.length>1}>
+      <div style={{fontWeight:700,fontSize:13,color:C.teal,marginBottom:10,fontFamily:F}}>{i===0?'Most recent role':`Role ${i+1}`}</div>
+      <div style={{marginBottom:10}}><QLabel required>Job title</QLabel><FInput value={job.title} onChange={v=>updateJob(i,'title',v)} placeholder="e.g. Senior Product Manager"/></div>
+      <div style={{marginBottom:10}}><QLabel required>Company</QLabel><FInput value={job.company} onChange={v=>updateJob(i,'company',v)} placeholder="e.g. Acme Corp"/></div>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:6}}>
+        <div><QLabel>Start date</QLabel><FInput value={job.startDate} onChange={v=>updateJob(i,'startDate',v)} placeholder="MM/YYYY"/></div>
+        <div><QLabel>End date</QLabel><FInput value={job.endDate} onChange={v=>updateJob(i,'endDate',v)} placeholder="MM/YYYY" style={{opacity:job.current?0.4:1}}/></div>
+      </div>
+      <label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',marginBottom:10}}><input type="checkbox" checked={job.current} onChange={e=>updateJob(i,'current',e.target.checked)} style={{accentColor:C.teal}}/><span style={{fontSize:13,color:C.slate,fontFamily:F}}>I currently work here</span></label>
+      <div style={{marginBottom:10}}><QLabel>Key responsibilities</QLabel><FTextarea value={job.responsibilities} onChange={v=>updateJob(i,'responsibilities',v)} placeholder="What did you own? What were your core duties?" rows={3}/></div>
+      <div><QLabel>Key accomplishments</QLabel><FTextarea value={job.accomplishments} onChange={v=>updateJob(i,'accomplishments',v)} placeholder="What did you achieve? Use numbers where possible — e.g. grew revenue 40%, reduced churn by 12%..." rows={3}/></div>
+    </RepeatBlock>)}
+    <button onClick={addJob} style={{width:'100%',padding:'10px 0',borderRadius:8,background:'none',border:`1.5px dashed ${C.teal}`,color:C.teal,fontWeight:600,fontSize:13,cursor:'pointer',fontFamily:F,marginBottom:16}}>+ Add another role</button>
     <Divider/>
-    <QLabel required>Total years of professional experience</QLabel>
-    <MaxSlider value={d.totalExp} onChange={v=>set(x=>({...x,totalExp:v}))} min={0} max={20} step={1} format={fmtYrs}/>
-    <Divider/>
-    <QLabel required>Years of experience in your primary function</QLabel>
-    <Sub>Specific to the type of work you do — not total career length.</Sub>
-    <MaxSlider value={d.fieldExp} onChange={v=>set(x=>({...x,fieldExp:v}))} min={0} max={20} step={1} format={fmtYrs}/>
-    <Divider/>
-    <QLabel>Longest tenure at a single employer</QLabel>
-    <MaxSlider value={d.longestTenure} onChange={v=>set(x=>({...x,longestTenure:v}))} min={0} max={20} step={1} format={fmtYrs}/>
-    <Divider/>
-    <QLabel required>Industries you've worked in</QLabel>
-    <Sub>Select all that apply.</Sub>
-    <MultiDropdown options={ALL_INDUSTRIES} values={d.industries} onChange={v=>set(x=>({...x,industries:v}))} placeholder="Search and select industries..."/>
-    {d.industries.length>0&&<div style={{fontSize:12,color:C.gray400,marginTop:6,fontFamily:F}}>{d.industries.length} selected</div>}
-    <Divider/>
-    <QLabel>Maximum number of direct reports you've managed</QLabel>
-    <Sub>Set to 0 if you've never managed people.</Sub>
-    <MaxSlider value={d.directReports} onChange={v=>set(x=>({...x,directReports:v}))} min={0} max={50} step={1} format={fmtReports}/>
-    <Divider/>
-    <QLabel>Have you managed projects or cross-functional teams?</QLabel>
-    <RadioGroup options={['No','Occasionally','Yes — regularly','Yes — it was a core part of my role']} value={d.managedProjects} onChange={v=>set(x=>({...x,managedProjects:v}))}/>
+    <QLabel>Any gaps in your work history? (optional)</QLabel>
+    <FTextarea value={d.gaps} onChange={v=>set(x=>({...x,gaps:v}))} placeholder="e.g. Took time off to care for family, pursued freelance work, traveled..." rows={2}/>
     <Divider/>
     <QLabel>Current employment status</QLabel>
-    <RadioGroup options={['Employed full-time','Employed part-time','Self-employed / Freelance','Currently unemployed','Student','Career break (planned)']} value={d.empStatus} onChange={v=>set(x=>({...x,empStatus:v}))}/>
-    <Divider/>
-    <QLabel>Any gaps in your work history? Briefly explain (optional)</QLabel>
-    <FTextarea value={d.gaps} onChange={v=>set(x=>({...x,gaps:v}))} placeholder="e.g. Took time off for family, freelanced, traveled..."/>
-  </>;
-}
+    <RadioGroup options={['Employed full-time','Employed part-time','Self-employed / Freelance','Currently unemployed','Student','Career break']} value={d.empStatus} onChange={v=>set(x=>({...x,empStatus:v}))}/>
+  </>;}
 
-function S4({d,set}:{d:SurveyData;set:React.Dispatch<React.SetStateAction<SurveyData>>}){
-  return<>
-    <SLabel>Section 4</SLabel>
-    <h2 style={{fontSize:21,fontWeight:800,color:C.slate,margin:'0 0 3px',letterSpacing:-0.5,fontFamily:F}}>Skills</h2>
-    <Sub>Be honest — overstating skills leads to bad matches for everyone.</Sub>
-    <Divider/>
-    <QLabel required>Soft skills — select your strongest (up to 8)</QLabel>
-    <MultiDropdown options={SOFT_SKILLS} values={d.softSkills} onChange={v=>v.length<=8&&set(x=>({...x,softSkills:v}))} placeholder="Search and select soft skills..."/>
-    {d.softSkills.length>0&&<div style={{fontSize:12,color:C.gray400,marginTop:6,fontFamily:F}}>{d.softSkills.length}/8 selected</div>}
-    <Divider/>
-    <QLabel required>Technical & functional skills — select all that apply</QLabel>
-    <MultiDropdown options={TECH_SKILLS} values={d.techSkills} onChange={v=>set(x=>({...x,techSkills:v}))} placeholder="Search and select technical skills..."/>
-    {d.techSkills.length>0&&<div style={{fontSize:12,color:C.gray400,marginTop:6,fontFamily:F}}>{d.techSkills.length} selected</div>}
-    <Divider/>
-    <QLabel>Additional skills, tools, or technologies not listed</QLabel>
-    <FInput value={d.otherSkills} onChange={v=>set(x=>({...x,otherSkills:v}))} placeholder="e.g. Tableau, Six Sigma, Mandarin, Kubernetes..."/>
-    <Divider/>
-    <QLabel required>Overall experience level</QLabel>
-    <RadioGroup options={['Entry — building foundational skills','Mid-level — solid independent contributor','Senior — deep expertise, sometimes leads others','Lead / Principal — sets direction, mentors others','Executive — organizational leadership']} value={d.seniority} onChange={v=>set(x=>({...x,seniority:v}))}/>
-  </>;
-}
+function S4({d,set}:SecProps){return<>
+  <SLabel>Section 4</SLabel>
+  <h2 style={{fontSize:21,fontWeight:800,color:C.slate,margin:'0 0 3px',letterSpacing:-0.5,fontFamily:F}}>Skills</h2>
+  <Sub>Type any skill and press Enter to add it. We'll suggest common skills as you type. Be honest — overstating leads to bad matches.</Sub>
+  <Divider/>
+  <QLabel required>Your skills</QLabel>
+  <Sub>Add as many as are genuinely relevant — technical, functional, and soft skills all in one place. Type + Enter to add.</Sub>
+  <TagInput values={d.skills} onChange={v=>set(x=>({...x,skills:v}))} suggestions={SKILL_SUGGESTIONS} placeholder="e.g. Product Management, SQL, Leadership, Figma..."/>
+  {d.skills.length>0&&<div style={{fontSize:12,color:C.gray400,marginTop:6,fontFamily:F}}>{d.skills.length} skills added</div>}
+  <Divider/>
+  <QLabel required>Overall experience level</QLabel>
+  <RadioGroup options={['Entry — building foundational skills','Mid-level — solid independent contributor','Senior — deep expertise, sometimes leads others','Lead / Principal — sets direction, mentors others','Executive — organizational leadership']} value={d.seniority} onChange={v=>set(x=>({...x,seniority:v}))}/>
+  <Divider/>
+  <QLabel>Industries you've worked in</QLabel>
+  <MultiDropdown options={INDUSTRIES} values={d.industries} onChange={v=>set(x=>({...x,industries:v}))} placeholder="Search and select industries..."/>
+  {d.industries.length>0&&<div style={{fontSize:12,color:C.gray400,marginTop:6,fontFamily:F}}>{d.industries.length} selected</div>}
+</>;}
 
-function S5({d,set}:{d:SurveyData;set:React.Dispatch<React.SetStateAction<SurveyData>>}){
+function S5({d,set}:SecProps){
   const fmtSalary=(v:number)=>v>=500?'$500k+':`$${v}k`;
   const fmtCommute=(v:number)=>v>=90?'90+ min':`${v} min`;
   const noCommute=d.remotePreference==='Remote only — I will not commute';
   return<>
     <SLabel>Section 5</SLabel>
     <h2 style={{fontSize:21,fontWeight:800,color:C.slate,margin:'0 0 3px',letterSpacing:-0.5,fontFamily:F}}>Job Preferences & Critical Needs</h2>
-    <Sub>Your ranges and non-negotiables. Be honest — this filters out roles that won't work for you.</Sub>
+    <Sub>Your ranges and non-negotiables. These filter out roles that don't work for you before you ever see them.</Sub>
     <Divider/>
     <QLabel required>Target job titles</QLabel>
-    <FInput value={d.targetTitles} onChange={v=>set(x=>({...x,targetTitles:v}))} placeholder="e.g. Product Manager, Director of Operations, Senior Analyst"/>
+    <Sub>Add each title as a tag — press Enter after each one.</Sub>
+    <TagInput values={d.targetTitles} onChange={v=>set(x=>({...x,targetTitles:v}))} suggestions={TITLE_SUGGESTIONS} placeholder="e.g. Senior Product Manager, Director of Operations..."/>
     <Divider/>
-    <QLabel required>Acceptable salary range (base pay only)</QLabel>
-    <Sub>We only show you roles within this range. Base salary — not total comp.</Sub>
-    <RangeSlider minVal={d.salaryMin} maxVal={d.salaryMax} onMin={v=>set(x=>({...x,salaryMin:v}))} onMax={v=>set(x=>({...x,salaryMax:v}))} min={30} max={500} step={5} format={fmtSalary}/>
+    <QLabel required>Ideal salary (base pay)</QLabel>
+    <Sub>What you're targeting — the number you'd be excited about.</Sub>
+    <MaxSlider value={d.idealSalary} onChange={v=>set(x=>({...x,idealSalary:v}))} min={30} max={500} step={5} format={fmtSalary}/>
+    <div style={{marginTop:20}}>
+      <QLabel required>Minimum acceptable salary (base pay)</QLabel>
+      <Sub>Your floor — the least you'd accept. We won't show you anything below this.</Sub>
+      <MaxSlider value={d.minSalary} onChange={v=>set(x=>({...x,minSalary:Math.min(v,d.idealSalary)}))} min={30} max={500} step={5} format={fmtSalary}/>
+    </div>
     <Divider/>
     <QLabel required>Remote work preference</QLabel>
     <RadioGroup options={['Remote only — I will not commute','Strongly prefer remote, open to occasional on-site','Hybrid — mix of remote and office is ideal','Flexible — whatever the role requires','On-site preferred']} value={d.remotePreference} onChange={v=>set(x=>({...x,remotePreference:v}))}/>
+    {!noCommute&&<div style={{marginTop:16}}><QLabel>Maximum one-way commute time</QLabel><MaxSlider value={d.maxCommute} onChange={v=>set(x=>({...x,maxCommute:v}))} min={10} max={90} step={5} format={fmtCommute}/></div>}
     <Divider/>
-    {!noCommute&&<>
-      <QLabel>Maximum one-way commute time you'd accept</QLabel>
-      <Sub>Based on your ZIP code, we filter roles by drive time.</Sub>
-      <MaxSlider value={d.maxCommute} onChange={v=>set(x=>({...x,maxCommute:v}))} min={10} max={90} step={5} format={fmtCommute}/>
-      <Divider/>
-    </>}
     <QLabel required>Employment type</QLabel>
-    <MultiPill options={['Full-time (permanent)','Part-time','Contract / Freelance','Contract-to-hire','Internship','Temporary / Seasonal']} values={d.employmentType} onChange={v=>set(x=>({...x,employmentType:v}))}/>
+    <MultiPill options={EMPLOYMENT_TYPES} values={d.employmentType} onChange={v=>set(x=>({...x,employmentType:v}))}/>
     <Divider/>
     <QLabel required>When are you available to start?</QLabel>
     <RadioGroup options={['Immediately (within 2 weeks)','Within 1 month','1–3 months','3–6 months','Exploring — no fixed timeline']} value={d.availability} onChange={v=>set(x=>({...x,availability:v}))}/>
     <Divider/>
     <QLabel>Open to relocation?</QLabel>
     <RadioGroup options={['No — staying where I am','Yes — anywhere','Yes — specific regions only (describe below)']} value={d.relocation} onChange={v=>set(x=>({...x,relocation:v}))}/>
-    {d.relocation?.includes('specific regions')&&<div style={{marginTop:9}}><FInput value={d.relocationRegions} onChange={v=>set(x=>({...x,relocationRegions:v}))} placeholder="e.g. Southeast US, New York metro, Pacific Northwest"/></div>}
+    {d.relocation?.includes('specific regions')&&<div style={{marginTop:8}}><FInput value={d.relocationRegions} onChange={v=>set(x=>({...x,relocationRegions:v}))} placeholder="e.g. Southeast US, New York metro, Pacific Northwest"/></div>}
     <Divider/>
     <QLabel>Willing to travel for work?</QLabel>
-    <RadioGroup options={['No travel','Occasional (under 10%)','Moderate (10–25%)','Frequent (25–50%)','Heavy (50%+)']} value={d.travel} onChange={v=>set(x=>({...x,travel:v}))}/>
+    <RadioGroup options={TRAVEL_LEVELS} value={d.travel} onChange={v=>set(x=>({...x,travel:v}))}/>
     <Divider/>
     <QLabel>Preferred company size</QLabel>
     <MultiPill options={['Startup (1–50)','Small (51–200)','Mid-size (201–1,000)','Large (1,001–10,000)','Enterprise (10,000+)','No preference']} values={d.companySize} onChange={v=>set(x=>({...x,companySize:v}))}/>
     <Divider/>
     <QLabel>Industries you'd like to work in</QLabel>
-    <Sub>Preferences — not hard filters. Leave blank to stay open to all.</Sub>
-    <MultiDropdown options={ALL_INDUSTRIES} values={d.targetIndustries} onChange={v=>set(x=>({...x,targetIndustries:v}))} placeholder="Search and select industries..."/>
+    <Sub>Leave blank to stay open to all.</Sub>
+    <MultiDropdown options={INDUSTRIES} values={d.targetIndustries} onChange={v=>set(x=>({...x,targetIndustries:v}))} placeholder="Search and select industries..."/>
     {d.targetIndustries.length>0&&<div style={{fontSize:12,color:C.gray400,marginTop:6,fontFamily:F}}>{d.targetIndustries.length} selected</div>}
-  </>;
-}
+  </>;}
 
-function S6({d,set}:{d:SurveyData;set:React.Dispatch<React.SetStateAction<SurveyData>>}){
-  const CULTURE_OPTIONS=['Fast-paced & high-energy','Collaborative & team-first','Data-driven & analytical','Creative & experimental','Process-driven & structured','Mission-driven & purpose-led','Performance & results-oriented','Autonomous & self-directed','Transparent & flat hierarchy','Stable & predictable'];
-  return<>
-    <SLabel>Section 6</SLabel>
-    <h2 style={{fontSize:21,fontWeight:800,color:C.slate,margin:'0 0 3px',letterSpacing:-0.5,fontFamily:F}}>Work Style & Culture Fit</h2>
-    <Sub>How you work matters as much as what you've done. These answers are matched directly against what employers tell us about their team and culture.</Sub>
-    <Divider/>
-    <QLabel required>What kind of culture are you looking for?</QLabel>
-    <Sub>Pick all that resonate. These exact descriptors are what companies use to describe themselves — so overlap = culture match score.</Sub>
-    <MultiPill options={CULTURE_OPTIONS} values={d.targetCulture} onChange={v=>set(x=>({...x,targetCulture:v}))}/>
-    {d.targetCulture.length>0&&<div style={{fontSize:12,color:C.gray400,marginTop:7,fontFamily:F}}>{d.targetCulture.length} selected</div>}
-    <Divider/>
-    <QLabel required>Preferred management style from your direct manager</QLabel>
-    <RadioGroup options={['Hands-off — sets goals and trusts the team','Collaborative — involved but not directive','Structured — clear expectations and regular feedback','Mentor-focused — invested in growth and development','Varies — adapts to each person']} value={d.mgmtStyle} onChange={v=>set(x=>({...x,mgmtStyle:v}))}/>
-    <Divider/>
-    <QLabel required>How do you prefer to receive feedback?</QLabel>
-    <RadioGroup options={['Real-time — as I go','Regular check-ins (weekly or bi-weekly)','Formal periodic reviews (quarterly)','Self-directed — I ask when I need it']} value={d.feedback} onChange={v=>set(x=>({...x,feedback:v}))}/>
-    <Divider/>
-    <QLabel>What motivates you most? (Pick top 3)</QLabel>
-    <MultiPill options={['Meaningful impact / mission','Career growth & advancement','Compensation & financial rewards','Learning new skills','Creative freedom','Team & culture','Flexibility & autonomy','Recognition & visibility','Stability & security']} values={d.motivators} onChange={v=>set(x=>({...x,motivators:v}))} max={3}/>
-    <div style={{fontSize:12,color:C.gray400,marginTop:7,fontFamily:F}}>{d.motivators.length}/3 selected</div>
-  </>;
-}
+function S6({d,set}:SecProps){return<>
+  <SLabel>Section 6</SLabel>
+  <h2 style={{fontSize:21,fontWeight:800,color:C.slate,margin:'0 0 3px',letterSpacing:-0.5,fontFamily:F}}>Work Style & Culture</h2>
+  <Sub>These answers are matched directly against how companies describe themselves. The more honest you are, the better your matches.</Sub>
+  <Divider/>
+  <QLabel required>What kind of culture are you looking for?</QLabel>
+  <Sub>These exact descriptors are what companies use to describe their teams.</Sub>
+  <MultiPill options={CULTURE_DESCRIPTORS} values={d.targetCulture} onChange={v=>set(x=>({...x,targetCulture:v}))}/>
+  <Divider/>
+  <QLabel required>Preferred management style from your direct manager</QLabel>
+  <RadioGroup options={MGMT_STYLES} value={d.mgmtStyle} onChange={v=>set(x=>({...x,mgmtStyle:v}))}/>
+  <Divider/>
+  <QLabel required>How do you prefer to receive feedback?</QLabel>
+  <RadioGroup options={['Real-time — as I go','Regular check-ins (weekly or bi-weekly)','Formal periodic reviews (quarterly)','Self-directed — I ask when I need it']} value={d.feedbackStyle} onChange={v=>set(x=>({...x,feedbackStyle:v}))}/>
+  <Divider/>
+  <QLabel>What motivates you most? (Pick top 3)</QLabel>
+  <MultiPill options={['Meaningful impact / mission','Career growth & advancement','Compensation & financial rewards','Learning new skills','Creative freedom','Team & culture','Flexibility & autonomy','Recognition & visibility','Stability & security']} values={d.motivators} onChange={v=>set(x=>({...x,motivators:v}))} max={3}/>
+  <div style={{fontSize:12,color:C.gray400,marginTop:7,fontFamily:F}}>{d.motivators.length}/3 selected</div>
+</>;}
 
-function S7({d,set}:{d:SurveyData;set:React.Dispatch<React.SetStateAction<SurveyData>>}){
-  const QS=[
-    {id:'EI',q:'In social situations, I tend to...',low:'Prefer small groups or 1-on-1',high:'Energize in large groups'},
-    {id:'SN',q:'When solving problems, I rely more on...',low:'Facts, data & past experience',high:'Intuition & future possibilities'},
-    {id:'TF',q:'When making decisions, I prioritize...',low:'Logic and objective analysis',high:"People's feelings and values"},
-    {id:'JP',q:'I prefer my work to be...',low:'Planned, structured & decided',high:'Flexible, open & spontaneous'},
-    {id:'stress',q:'Under pressure, I typically...',low:'Stay calm and methodical',high:'Feel energized and speed up'},
-    {id:'conflict',q:"When there's a disagreement at work...",low:'I prefer to accommodate and avoid tension',high:'I address it directly and advocate my view'},
-    {id:'ambiguity',q:'My comfort with unclear or open-ended work is...',low:'Low — I need clear direction',high:'High — I thrive with open-ended problems'},
-    {id:'risk',q:'My risk tolerance in professional decisions is...',low:'Conservative — I prefer proven paths',high:"High — I'm comfortable with bold bets"},
-    {id:'detail',q:'My natural orientation toward detail is...',low:'Big picture — I delegate details',high:'Detail-oriented — I want to know everything'},
-    {id:'change',q:'When the org changes direction suddenly...',low:'I find it stressful and disruptive',high:'I adapt quickly and see opportunity'},
-    {id:'recognition',q:'I prefer recognition that is...',low:'Private — a personal thank-you is enough',high:'Public — I like being acknowledged openly'},
-    {id:'collab',q:'My natural preference leans toward...',low:'Working independently',high:'Working as part of a team'},
-  ];
-  return<>
-    <SLabel>Section 7</SLabel>
-    <h2 style={{fontSize:21,fontWeight:800,color:C.slate,margin:'0 0 3px',letterSpacing:-0.5,fontFamily:F}}>Personality & Behavioral Profile</h2>
-    <Sub>Our workplace-calibrated personality assessment. Used to match you with teams where people like you thrive. No right or wrong answers.</Sub>
-    <Divider/>
-    <div style={{background:C.tealDim,border:`1px solid ${C.tealBorder}`,borderRadius:9,padding:'12px 14px',marginBottom:20}}>
-      <p style={{fontSize:13,color:C.teal,fontWeight:600,margin:0,fontFamily:F}}>Rate yourself 1–5. 1 = strongly left, 5 = strongly right, 3 = balanced between both.</p>
-    </div>
-    {QS.map(q=><ScaleQ key={q.id} question={q.q} low={q.low} high={q.high} value={d.personality[q.id]||0} onChange={v=>set(x=>({...x,personality:{...x.personality,[q.id]:v}}))}/>)}
-    <Divider/>
-    <QLabel>Communication style</QLabel>
-    <RadioGroup options={['Direct and concise — I say what I mean','Diplomatic — I\'m mindful of how things land','Expressive — I bring energy and enthusiasm','Analytical — I lead with data and logic']} value={d.commStyle} onChange={v=>set(x=>({...x,commStyle:v}))}/>
-    <Divider/>
-    <QLabel>How do you handle making mistakes at work?</QLabel>
-    <RadioGroup options={['I own it quickly, fix it, and move on','I analyze what went wrong before moving forward','I take it hard but learn from it','I focus on prevention to minimize future errors']} value={d.mistakeStyle} onChange={v=>set(x=>({...x,mistakeStyle:v}))}/>
-  </>;
-}
+function S7({d,set}:SecProps){return<>
+  <SLabel>Section 7</SLabel>
+  <h2 style={{fontSize:21,fontWeight:800,color:C.slate,margin:'0 0 3px',letterSpacing:-0.5,fontFamily:F}}>Personality & Behavioral Profile</h2>
+  <Sub>Matched directly against how employers describe what their role requires. No right or wrong answers.</Sub>
+  <Divider/>
+  <div style={{background:C.tealDim,border:`1px solid ${C.tealBorder}`,borderRadius:9,padding:'12px 14px',marginBottom:20}}>
+    <p style={{fontSize:13,color:C.teal,fontWeight:600,margin:0,fontFamily:F}}>Rate yourself 1–5. 1 = strongly left, 5 = strongly right, 3 = balanced.</p>
+  </div>
+  {PERSONALITY_DIMS_SEEKER.map(q=><ScaleQ key={q.id} question={q.q} low={q.low} high={q.high} value={d.personality[q.id]} onChange={v=>set(x=>({...x,personality:{...x.personality,[q.id]:v}}))}/>)}
+</>;}
 
-function S8({d,set}:{d:SurveyData;set:React.Dispatch<React.SetStateAction<SurveyData>>}){
-  return<>
-    <SLabel>Section 8</SLabel>
-    <h2 style={{fontSize:21,fontWeight:800,color:C.slate,margin:'0 0 3px',letterSpacing:-0.5,fontFamily:F}}>Career Goals & Intentions</h2>
-    <Sub>Understanding where you're headed helps us find roles that are a step forward — not ones you'll regret in 6 months.</Sub>
-    <Divider/>
-    <QLabel required>Primary goal right now</QLabel>
-    <RadioGroup options={['Find a better-paying role','Advance to a more senior position','Switch industries or functions','Find better work-life balance','Return to work after a break','Find more stability or security','Find more meaningful / mission-driven work','Still exploring — not sure yet']} value={d.primaryGoal} onChange={v=>set(x=>({...x,primaryGoal:v}))}/>
-    <Divider/>
-    <QLabel>Where do you see yourself in 3–5 years?</QLabel>
-    <RadioGroup options={['In a leadership or management role','Deep subject-matter expert / individual contributor','Running my own business or freelancing','Still growing in my current function','Not sure yet — exploring']} value={d.fiveYear} onChange={v=>set(x=>({...x,fiveYear:v}))}/>
-    <Divider/>
-    <QLabel>How actively are you job searching right now?</QLabel>
-    <RadioGroup options={['Actively — I want to move fast','Open to the right opportunity — not in a rush','Passively exploring — not actively applying','Employed and happy, but curious']} value={d.searchIntensity} onChange={v=>set(x=>({...x,searchIntensity:v}))}/>
-    <Divider/>
-    <QLabel>Currently interviewing elsewhere?</QLabel>
-    <RadioGroup options={['Yes — actively in several processes','Yes — a few early conversations','No — Matcht is my starting point','No — I prefer to go one at a time']} value={d.otherInterviews} onChange={v=>set(x=>({...x,otherInterviews:v}))}/>
-    <Divider/>
-    <QLabel>What would make you stay at your current job? (if applicable)</QLabel>
-    <MultiPill options={['Significant salary increase','Promotion or title change','More flexibility / remote options','Better management or culture','Nothing — I\'m ready to leave','Not applicable']} values={d.stayReasons} onChange={v=>set(x=>({...x,stayReasons:v}))}/>
-    <Divider/>
-    <QLabel>Anything else you'd like employers to know? (Optional)</QLabel>
-    <Sub>Shows up as a personal note on your profile — the human part a resume doesn't capture.</Sub>
-    <FTextarea value={d.personalNote} onChange={v=>set(x=>({...x,personalNote:v}))} placeholder="e.g. Relocating to Austin in Q3. Looking for a company that values autonomy. Portfolio at..." rows={4}/>
-  </>;
-}
+function S8({d,set}:SecProps){return<>
+  <SLabel>Section 8</SLabel>
+  <h2 style={{fontSize:21,fontWeight:800,color:C.slate,margin:'0 0 3px',letterSpacing:-0.5,fontFamily:F}}>Career Goals & Intentions</h2>
+  <Sub>Understanding where you're headed helps us find roles that move you forward — not ones you'll regret in 6 months.</Sub>
+  <Divider/>
+  <QLabel required>Primary goal right now</QLabel>
+  <RadioGroup options={['Find a better-paying role','Advance to a more senior position','Switch industries or functions','Find better work-life balance','Return to work after a break','Find more stability or security','Find more meaningful / mission-driven work','Still exploring — not sure yet']} value={d.primaryGoal} onChange={v=>set(x=>({...x,primaryGoal:v}))}/>
+  <Divider/>
+  <QLabel>Where do you see yourself in 3–5 years?</QLabel>
+  <RadioGroup options={['In a leadership or management role','Deep subject-matter expert / individual contributor','Running my own business or freelancing','Still growing in my current function','Not sure yet — exploring']} value={d.fiveYear} onChange={v=>set(x=>({...x,fiveYear:v}))}/>
+  <Divider/>
+  <QLabel>How actively are you job searching right now?</QLabel>
+  <RadioGroup options={['Actively — I want to move fast','Open to the right opportunity — not in a rush','Passively exploring — not actively applying','Employed and happy, but curious']} value={d.searchIntensity} onChange={v=>set(x=>({...x,searchIntensity:v}))}/>
+  <Divider/>
+  <QLabel>What would make you stay at your current job? (if applicable)</QLabel>
+  <MultiPill options={['Significant salary increase','Promotion or title change','More flexibility / remote options','Better management or culture','Nothing — I\'m ready to leave','Not applicable']} values={d.stayReasons} onChange={v=>set(x=>({...x,stayReasons:v}))}/>
+  <Divider/>
+  <QLabel>Anything else you'd like employers to know? (Optional)</QLabel>
+  <Sub>Your personal note — the human part a resume never captures.</Sub>
+  <FTextarea value={d.personalNote} onChange={v=>set(x=>({...x,personalNote:v}))} placeholder="e.g. Relocating to Austin in Q3. Looking for a company that values autonomy. Portfolio at..." rows={4}/>
+</>;}
 
 function ReviewScreen({data}:{data:SurveyData}){
   const fmtSalary=(v:number)=>v>=500?'$500k+':`$${v}k`;
+  const latestJob=data.jobs[0];
   const rows:[string,string][]=[
     ['Name',`${data.firstName} ${data.lastName}`.trim()],
     ['Location',data.location],
     ['Work authorization',data.workAuth],
-    ['Education',data.education],
-    ['Total experience',data.totalExp?`${data.totalExp}+ yrs`:''],
-    ['Current title',data.currentTitle],
-    ['Industries (worked in)',data.industries.slice(0,4).join(', ')+(data.industries.length>4?` +${data.industries.length-4} more`:'')],
-    ['Soft skills',data.softSkills.join(', ')],
-    ['Technical skills',data.techSkills.slice(0,3).join(', ')+(data.techSkills.length>3?'...':'')],
-    ['Target titles',data.targetTitles],
-    ['Salary range',data.salaryMin&&data.salaryMax?`${fmtSalary(data.salaryMin)} – ${fmtSalary(data.salaryMax)}`:''],
+    ['Most recent role',latestJob?`${latestJob.title} at ${latestJob.company}`:''],
+    ['Education',data.degrees[0]?.level??''],
+    ['Total skills',data.skills.length?`${data.skills.length} skills added`:''],
+    ['Top skills',data.skills.slice(0,4).join(', ')+(data.skills.length>4?'...':'')],
+    ['Target titles',data.targetTitles.join(', ')],
+    ['Ideal salary',data.idealSalary?fmtSalary(data.idealSalary):''],
+    ['Minimum salary',data.minSalary?fmtSalary(data.minSalary):''],
     ['Remote preference',data.remotePreference],
     ['Max commute',data.maxCommute&&!data.remotePreference?.includes('Remote only')?`${data.maxCommute} min`:'N/A'],
     ['Availability',data.availability],
-    ['Work style',data.workStyle],
+    ['Target culture',data.targetCulture.slice(0,3).join(', ')],
+    ['Preferred mgmt style',data.mgmtStyle],
     ['Primary goal',data.primaryGoal],
     ['Search status',data.searchIntensity],
   ];
   return<>
     <SLabel>Almost done</SLabel>
     <h2 style={{fontSize:21,fontWeight:800,color:C.slate,margin:'0 0 3px',letterSpacing:-0.5,fontFamily:F}}>Review your profile</h2>
-    <Sub>Once you submit, your profile goes live and we start matching you immediately.</Sub>
+    <Sub>Once you submit, your profile goes live and we start matching you immediately. You can edit anything at any time.</Sub>
     <Divider/>
     {rows.filter(([,v])=>v).map(([l,v])=>(
       <div key={l} style={{display:'flex',borderBottom:`1px solid ${C.border}`,padding:'10px 0',gap:12}}>
@@ -479,101 +403,92 @@ function ReviewScreen({data}:{data:SurveyData}){
         <span style={{fontSize:13,color:C.slate,fontWeight:600,fontFamily:F,lineHeight:1.4}}>{v}</span>
       </div>
     ))}
-    <div style={{marginTop:22,background:C.tealDim,border:`1px solid ${C.tealBorder}`,borderRadius:9,padding:'14px 16px'}}>
-      <p style={{fontSize:13,color:C.teal,fontWeight:600,margin:0,fontFamily:F}}>✓ Your full profile is saved. You'll be notified the moment a role matches your criteria.</p>
+    <div style={{marginTop:20,background:C.tealDim,border:`1px solid ${C.tealBorder}`,borderRadius:9,padding:'14px 16px'}}>
+      <p style={{fontSize:13,color:C.teal,fontWeight:600,margin:0,fontFamily:F}}>✓ Your profile replaces your resume. We'll notify you the moment a role matches your criteria.</p>
     </div>
-  </>;
-}
+  </>;}
 
-// ── Sections registry ─────────────────────────────────────────────────────
+// ── Section registry ──────────────────────────────────────────────────────────
 const SECTIONS=[
-  {label:'Basic Info',    Comp:S1},
-  {label:'Education',     Comp:S2},
-  {label:'Work History',  Comp:S3},
-  {label:'Skills',        Comp:S4},
-  {label:'Job Preferences',Comp:S5},
-  {label:'Work Style',    Comp:S6},
-  {label:'Personality',   Comp:S7},
-  {label:'Goals',         Comp:S8},
+  {label:'Basic Info',   Comp:S1},{label:'Education',     Comp:S2},{label:'Work History', Comp:S3},
+  {label:'Skills',       Comp:S4},{label:'Job Preferences',Comp:S5},{label:'Work Style',   Comp:S6},
+  {label:'Personality',  Comp:S7},{label:'Goals',          Comp:S8},
 ];
 
-// ── Page ──────────────────────────────────────────────────────────────────
+// Derive approximate total years from jobs_history dates
+function deriveExpYears(jobs:WorkJob[]):number{
+  let total=0;
+  for(const j of jobs){
+    const parseDate=(s:string)=>{const[m,y]=s.split('/').map(Number);return isNaN(y)?null:new Date(y,(m||1)-1);};
+    const start=parseDate(j.startDate);
+    const end=j.current?new Date():parseDate(j.endDate);
+    if(start&&end)total+=(end.getTime()-start.getTime())/(1000*60*60*24*365.25);
+  }
+  return Math.round(total)||0;
+}
+
+// ── Page ──────────────────────────────────────────────────────────────────────
 export default function ProfileSurvey(){
   const {user,profile,loading,refreshProfile}=useUser();
   const router=useRouter();
   const supabase=useMemo(()=>createClient(),[]);
+  const [showResume,setShowResume]=useState(false);
   const [step,setStep]=useState(0);
   const [data,setData]=useState<SurveyData>(INIT);
   const [saving,setSaving]=useState(false);
   const [saveError,setSaveError]=useState('');
   const [done,setDone]=useState(false);
-  // Track whether the profile was already complete when the page loaded (edit vs first-time)
   const [isEdit,setIsEdit]=useState(false);
   const total=SECTIONS.length;
   const isReview=step===total;
 
-  // Pre-fill all existing answers when profile loads
   useEffect(()=>{
     if(!profile)return;
     setIsEdit(!!profile.profile_complete);
+    if(!profile.profile_complete)setShowResume(true);
     const fromProfile:SurveyData={
-      firstName: profile.first_name||profile.name?.split(' ')[0]||'',
-      lastName:  profile.last_name||profile.name?.split(' ').slice(1).join(' ')||'',
-      email:     profile.email||'',
-      phone:     profile.phone||'',
-      location:  profile.location||'',
-      zip:       profile.zip||'',
-      workAuth:  profile.work_auth||'',
-      eeoc:      profile.eeoc||[],
-      education: profile.education||'',
-      major:     profile.major||'',
-      university:profile.university||'',
-      certs:     profile.certs||'',
-      enrolled:  profile.enrolled||'',
-      currentTitle:    profile.title||'',
-      currentEmployer: profile.current_employer||'',
-      totalExp:        profile.total_exp||0,
-      fieldExp:        profile.field_exp||0,
-      longestTenure:   profile.longest_tenure||0,
-      industries:      profile.industries||[],
-      directReports:   profile.direct_reports||0,
-      managedProjects: profile.managed_projects||'',
-      empStatus:       profile.emp_status||'',
-      gaps:            profile.gaps||'',
-      softSkills:  profile.soft_skills||[],
-      techSkills:  profile.tech_skills||[],
-      otherSkills: profile.other_skills||'',
-      seniority:   profile.seniority||'',
-      targetTitles:    profile.target_titles||'',
-      // salary stored as full dollars in DB — convert back to $k for the slider
-      salaryMin:       profile.salary_min ? Math.round(profile.salary_min/1000) : 60,
-      salaryMax:       profile.salary_max ? Math.round(profile.salary_max/1000) : 150,
-      remotePreference:profile.remote_preference||'',
-      maxCommute:      profile.max_commute||30,
-      employmentType:  profile.employment_type||[],
-      availability:    profile.availability||'',
-      relocation:      profile.relocation||'',
-      relocationRegions:profile.relocation_regions||'',
-      travel:          profile.travel||'',
-      companySize:     profile.company_size||[],
-      targetIndustries:profile.target_industries||[],
-      feedback:   profile.feedback_pref||'',
-      workStyle:  profile.work_style||'',
-      pace:       profile.pace||'',
-      mgmtStyle:  profile.mgmt_style||'',
-      teamRole:   profile.team_role||'',
-      envPrefs:   profile.env_prefs||[],
-      motivators: profile.motivators||[],
-      targetCulture: (profile as any).target_culture||[],
-      personality:   (profile.personality as Record<string,number>)||{},
-      commStyle:     profile.comm_style||'',
-      mistakeStyle:  profile.mistake_style||'',
-      primaryGoal:     profile.primary_goal||'',
-      fiveYear:        profile.five_year||'',
-      searchIntensity: profile.search_intensity||'',
-      otherInterviews: profile.other_interviews||'',
-      stayReasons:     profile.stay_reasons||[],
-      personalNote:    profile.bio||'',
+      firstName: profile.first_name??profile.name?.split(' ')[0]??'',
+      lastName:  profile.last_name??profile.name?.split(' ').slice(1).join(' ')??'',
+      email:     profile.email??'',
+      phone:     profile.phone??'',
+      location:  profile.location??'',
+      zip:       profile.zip??'',
+      workAuth:  profile.work_auth??'',
+      eeoc:      (profile.eeoc as string[])??[],
+      degrees:   (profile.degrees as Degree[])??[{...BLANK_DEGREE}],
+      certs:     profile.certs??'',
+      jobs:      (profile.jobs_history as WorkJob[])??[{...BLANK_JOB}],
+      gaps:      profile.gaps??'',
+      empStatus: profile.emp_status??'',
+      skills:    (profile.skills as string[])??[],
+      seniority: profile.seniority??'',
+      industries:(profile.industries as string[])??[],
+      targetTitles: Array.isArray(profile.target_titles)
+        ?(profile.target_titles as string[])
+        :(profile.target_titles?([(profile.target_titles as string)]):[]),
+      idealSalary: profile.ideal_salary?Math.round(profile.ideal_salary/1000)
+        :(profile.salary_max?Math.round(profile.salary_max/1000):100),
+      minSalary: profile.min_salary?Math.round(profile.min_salary/1000)
+        :(profile.salary_min?Math.round(profile.salary_min/1000):80),
+      remotePreference:  profile.remote_preference??'',
+      maxCommute:        profile.max_commute??30,
+      employmentType:    (profile.employment_type as string[])??[],
+      availability:      profile.availability??'',
+      relocation:        profile.relocation??'',
+      relocationRegions: profile.relocation_regions??'',
+      travel:            profile.travel??'',
+      companySize:       (profile.company_size as string[])??[],
+      targetIndustries:  (profile.target_industries as string[])??[],
+      targetCulture:     (profile.target_culture as string[])??[],
+      mgmtStyle:    profile.mgmt_style??'',
+      feedbackStyle:profile.feedback_pref??'',
+      motivators:   (profile.motivators as string[])??[],
+      personality:  (profile.personality as Record<string,number>)??{},
+      primaryGoal:    profile.primary_goal??'',
+      fiveYear:       profile.five_year??'',
+      searchIntensity:profile.search_intensity??'',
+      stayReasons:    (profile.stay_reasons as string[])??[],
+      personalNote:   profile.bio??'',
     };
     if(!profile.profile_complete){
       try{const saved=localStorage.getItem(`matcht_profile_draft_${profile.id}`);if(saved){setData(JSON.parse(saved));return;}}catch{}
@@ -588,45 +503,29 @@ export default function ProfileSurvey(){
   }
 
   async function submit(){
-    const uid = profile?.id ?? user?.id;
+    const uid=profile?.id??user?.id;
     if(!uid)return;
-    setSaving(true);
-    setSaveError('');
+    setSaving(true);setSaveError('');
     try{
-      const {error:upsertErr}=await supabase.from('profiles').upsert({
-        id: uid,
+      const totalExp=deriveExpYears(data.jobs)||null;
+      const {error}=await supabase.from('profiles').upsert({
+        id:uid,
         name:`${data.firstName} ${data.lastName}`.trim(),
-        first_name:data.firstName,
-        last_name:data.lastName,
-        phone:data.phone||null,
-        location:data.location||null,
-        zip:data.zip||null,
-        work_auth:data.workAuth||null,
-        eeoc:data.eeoc,
-        education:data.education||null,
-        major:data.major||null,
-        university:data.university||null,
-        certs:data.certs||null,
-        enrolled:data.enrolled||null,
-        title:data.currentTitle||null,
-        current_employer:data.currentEmployer||null,
-        total_exp:data.totalExp,
-        field_exp:data.fieldExp,
-        longest_tenure:data.longestTenure,
-        industries:data.industries,
-        direct_reports:data.directReports,
-        managed_projects:data.managedProjects||null,
-        emp_status:data.empStatus||null,
-        gaps:data.gaps||null,
-        soft_skills:data.softSkills,
-        tech_skills:data.techSkills,
-        skills:[...data.softSkills,...data.techSkills],
-        other_skills:data.otherSkills||null,
-        seniority:data.seniority||null,
-        target_titles:data.targetTitles||null,
-        salary_min:data.salaryMin*1000,
-        salary_max:data.salaryMax*1000,
-        salary_label:`$${data.salaryMin}k–$${data.salaryMax}k`,
+        first_name:data.firstName,last_name:data.lastName,
+        phone:data.phone||null,location:data.location||null,
+        zip:data.zip||null,work_auth:data.workAuth||null,eeoc:data.eeoc,
+        degrees:data.degrees,certs:data.certs||null,
+        jobs_history:data.jobs,
+        title:data.jobs[0]?.title||null,
+        total_exp:totalExp,
+        gaps:data.gaps||null,emp_status:data.empStatus||null,
+        skills:data.skills,seniority:data.seniority||null,industries:data.industries,
+        target_titles:data.targetTitles,
+        ideal_salary:data.idealSalary*1000,
+        min_salary:data.minSalary*1000,
+        salary_min:data.minSalary*1000,
+        salary_max:data.idealSalary*1000,
+        salary_label:`$${data.minSalary}k–$${data.idealSalary}k`,
         remote_preference:data.remotePreference||null,
         max_commute:data.maxCommute,
         employment_type:data.employmentType,
@@ -636,41 +535,30 @@ export default function ProfileSurvey(){
         travel:data.travel||null,
         company_size:data.companySize,
         target_industries:data.targetIndustries,
-        feedback_pref:data.feedback||null,
-        work_style:data.workStyle||null,
-        pace:data.pace||null,
-        mgmt_style:data.mgmtStyle||null,
-        team_role:data.teamRole||null,
-        env_prefs:data.envPrefs,
-        motivators:data.motivators,
         target_culture:data.targetCulture,
+        mgmt_style:data.mgmtStyle||null,
+        feedback_pref:data.feedbackStyle||null,
+        motivators:data.motivators,
         personality:data.personality,
-        comm_style:data.commStyle||null,
-        mistake_style:data.mistakeStyle||null,
         primary_goal:data.primaryGoal||null,
         five_year:data.fiveYear||null,
         search_intensity:data.searchIntensity||null,
-        other_interviews:data.otherInterviews||null,
         stay_reasons:data.stayReasons,
         bio:data.personalNote||null,
         profile_complete:true,
         updated_at:new Date().toISOString(),
       });
-      if(upsertErr) throw upsertErr;
-
+      if(error)throw error;
       fetch('/api/match-scores',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({seekerId:uid})});
       if(!profile?.profile_complete){
         fetch('/api/email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'seeker-welcome',seekerId:uid})});
-        fetch('/api/email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'seeker-profile-live',seekerId:uid})});
       }
       await refreshProfile();
       try{localStorage.removeItem(`matcht_profile_draft_${uid}`);}catch{}
       setDone(true);
-    }catch(err:any){
-      setSaveError(err?.message||'Save failed. Your answers are preserved — please try again.');
-    }finally{
-      setSaving(false);
-    }
+    }catch(err:unknown){
+      setSaveError((err as Error)?.message||'Save failed. Your answers are preserved — please try again.');
+    }finally{setSaving(false);}
   }
 
   if(loading)return<div style={{display:'flex',alignItems:'center',justifyContent:'center',minHeight:'60vh',fontFamily:F,color:C.teal}}>Loading…</div>;
@@ -679,31 +567,27 @@ export default function ProfileSurvey(){
     <div style={{background:C.bg,minHeight:'100vh',fontFamily:F,display:'flex',alignItems:'center',justifyContent:'center',padding:24}}>
       <div style={{textAlign:'center',maxWidth:400}}>
         <div style={{fontSize:52,marginBottom:14}}>{isEdit?'✓':'🎉'}</div>
-        <h1 style={{fontSize:24,fontWeight:800,color:C.slate,margin:'0 0 10px',letterSpacing:-0.5}}>{isEdit?'Profile updated.':'You\'re in the pool.'}</h1>
-        <p style={{color:C.gray600,fontSize:15,lineHeight:1.65,margin:'0 0 22px'}}>{isEdit?'Your changes are saved. Your match scores will refresh shortly.':'Your profile is live. We\'ll notify you the moment a role matches. No applying. No forms. Just matches.'}</p>
-        {!isEdit&&<div style={{background:C.tealDim,border:`1px solid ${C.tealBorder}`,borderRadius:10,padding:'16px 18px',marginBottom:20}}>
-          <p style={{fontSize:13,color:C.teal,fontWeight:600,margin:0}}>Next up: upload a short video intro to boost your visibility by 4×.</p>
-        </div>}
+        <h1 style={{fontSize:24,fontWeight:800,color:C.slate,margin:'0 0 10px',letterSpacing:-0.5}}>{isEdit?'Profile updated.':'You\'re live.'}</h1>
+        <p style={{color:C.gray600,fontSize:15,lineHeight:1.65,margin:'0 0 22px'}}>{isEdit?'Your changes are saved. Match scores will refresh shortly.':'Your profile is live. We\'ll notify you the moment a role matches. No applying. No forms. Just matches.'}</p>
+        {!isEdit&&<div style={{background:C.tealDim,border:`1px solid ${C.tealBorder}`,borderRadius:10,padding:'16px 18px',marginBottom:20}}><p style={{fontSize:13,color:C.teal,fontWeight:600,margin:0}}>Add a video intro to boost your visibility 4×. Takes 3 minutes.</p></div>}
         <button onClick={()=>router.push('/dashboard')} style={{padding:'12px 28px',borderRadius:8,background:C.teal,color:C.white,border:'none',fontWeight:700,fontSize:14,cursor:'pointer',fontFamily:F}}>{isEdit?'Back to my matches →':'Go to my matches →'}</button>
       </div>
     </div>
   );
 
-  const SecComp=!isReview?SECTIONS[step].Comp:null;
+  if(showResume)return<ResumeUpload onSkip={()=>setShowResume(false)}/>;
 
+  const SecComp=!isReview?SECTIONS[step].Comp:null;
   return(
     <div style={{background:C.bg,minHeight:'100vh',fontFamily:F,paddingBottom:80}}>
-      {/* Sticky header */}
       <div style={{background:C.white,borderBottom:`1px solid ${C.border}`,padding:'0 24px',height:52,display:'flex',alignItems:'center',justifyContent:'space-between',position:'sticky',top:0,zIndex:100}}>
         <div style={{display:'flex',alignItems:'center',gap:7}}>
           <div style={{width:24,height:24,borderRadius:5,background:C.teal,display:'flex',alignItems:'center',justifyContent:'center',fontWeight:800,fontSize:10,color:C.white}}>M</div>
           <span style={{fontWeight:800,fontSize:14,color:C.slate,letterSpacing:-0.3}}>Matcht</span>
-          <span style={{fontSize:11,color:C.gray400}}>/ Candidate Profile</span>
+          <span style={{fontSize:11,color:C.gray400}}>/ Your Profile</span>
         </div>
         <span style={{fontSize:12,color:C.gray600,fontWeight:600}}>{isReview?'Review & submit':`${step+1} of ${total} — ${SECTIONS[step].label}`}</span>
       </div>
-
-      {/* Section tabs */}
       <div style={{background:C.white,borderBottom:`1px solid ${C.border}`,padding:'0 20px',overflowX:'auto'}}>
         <div style={{display:'flex',minWidth:'fit-content'}}>
           {SECTIONS.map((s,i)=>(
@@ -714,10 +598,8 @@ export default function ProfileSurvey(){
           <button onClick={()=>go(total)} style={{padding:'9px 12px',border:'none',background:'none',borderBottom:`2.5px solid ${isReview?C.teal:'transparent'}`,color:isReview?C.teal:C.gray400,fontWeight:isReview?700:500,fontSize:12,cursor:'pointer',fontFamily:F,whiteSpace:'nowrap'}}>Review</button>
         </div>
       </div>
-
-      {/* Content */}
       <div style={{maxWidth:640,margin:'28px auto 0',padding:'0 16px'}}>
-        <ProgressBar step={step} total={total}/>
+        <Progress step={step} total={total}/>
         <div style={{background:C.white,borderRadius:14,border:`1px solid ${C.border}`,padding:'26px 24px',marginBottom:14}}>
           {isReview?<ReviewScreen data={data}/>:SecComp&&<SecComp d={data} set={setData}/>}
         </div>
@@ -725,9 +607,8 @@ export default function ProfileSurvey(){
         <div style={{display:'flex',gap:9}}>
           {step>0&&<button onClick={()=>go(step-1)} style={{flex:1,padding:'11px 0',borderRadius:8,background:C.white,border:`1.5px solid ${C.border}`,color:C.gray600,fontWeight:600,fontSize:14,cursor:'pointer',fontFamily:F}}>← Back</button>}
           {!isReview
-            ?<button onClick={()=>go(step+1)} style={{flex:2,padding:'11px 0',borderRadius:8,background:C.teal,color:C.white,border:'none',fontWeight:700,fontSize:14,cursor:'pointer',fontFamily:F}}>{step<total-1?'Continue →':'Review my answers →'}</button>
-            :<button onClick={submit} disabled={saving} style={{flex:2,padding:'11px 0',borderRadius:8,background:saving?C.gray400:C.teal,color:C.white,border:'none',fontWeight:700,fontSize:14,cursor:saving?'default':'pointer',fontFamily:F}}>{saving?'Saving…':isEdit?'Save changes →':'Submit & go live →'}</button>
-          }
+            ?<button onClick={()=>go(step+1)} style={{flex:2,padding:'11px 0',borderRadius:8,background:C.teal,color:C.white,border:'none',fontWeight:700,fontSize:14,cursor:'pointer',fontFamily:F}}>{step<total-1?'Continue →':'Review my profile →'}</button>
+            :<button onClick={submit} disabled={saving} style={{flex:2,padding:'11px 0',borderRadius:8,background:saving?C.gray400:C.teal,color:C.white,border:'none',fontWeight:700,fontSize:14,cursor:saving?'default':'pointer',fontFamily:F}}>{saving?'Saving…':isEdit?'Save changes →':'Submit & go live →'}</button>}
         </div>
       </div>
     </div>

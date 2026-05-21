@@ -16,34 +16,26 @@ export type Profile = {
   eeoc?: string[] | null;
 
   // ── Section 2: Education ────────────────────────────────────
-  education?: string | null;
-  major?: string | null;
-  university?: string | null;
+  degrees?: Record<string, unknown>[] | null;
   certs?: string | null;
-  enrolled?: string | null;
 
   // ── Section 3: Work History ─────────────────────────────────
   title?: string | null;
-  current_employer?: string | null;
+  jobs_history?: Record<string, unknown>[] | null;
   total_exp?: number | null;
-  field_exp?: number | null;
-  longest_tenure?: number | null;
   experience_level?: string | null;
   industries?: string[] | null;
-  direct_reports?: number | null;
-  managed_projects?: string | null;
   emp_status?: string | null;
   gaps?: string | null;
 
   // ── Section 4: Skills ───────────────────────────────────────
   skills?: string[] | null;
-  soft_skills?: string[] | null;
-  tech_skills?: string[] | null;
-  other_skills?: string | null;
   seniority?: string | null;
 
   // ── Section 5: Job Preferences ──────────────────────────────
-  target_titles?: string | null;
+  target_titles?: string[] | null;
+  ideal_salary?: number | null;
+  min_salary?: number | null;
   salary_label?: string | null;
   salary_min?: number | null;
   salary_max?: number | null;

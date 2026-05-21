@@ -17,13 +17,8 @@ function scoreSkills(seeker: Profile, job: Job): number {
   const required = job.required_skills ?? [];
   if (!required.length) return 100;
 
-  // Pool all skill sources from the richer survey data
-  const pool = [
-    ...(seeker.soft_skills ?? []),
-    ...(seeker.tech_skills ?? []),
-    ...(seeker.skills ?? []),
-    ...(seeker.other_skills ? seeker.other_skills.split(',').map(s => s.trim()) : []),
-  ].map(s => s.toLowerCase());
+  const pool = (seeker.skills ?? []).map(s => s.toLowerCase());
+  if (!pool.length) return 40;
 
   const matched = required.filter(r =>
     pool.some(s => s.includes(r.toLowerCase()) || r.toLowerCase().includes(s))

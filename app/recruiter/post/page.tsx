@@ -1,12 +1,12 @@
 'use client';
-import { useState, useMemo, CSSProperties } from 'react';
+import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@/app/providers';
 import { createClient } from '@/lib/supabase/client';
 import {
-  INDUSTRIES, SOFT_SKILLS, TECH_SKILLS, EDUCATION_LEVELS, CULTURE_DESCRIPTORS,
-  EMPLOYMENT_TYPES, MGMT_STYLES, TRAVEL_LEVELS, SCORE_DIMS,
-  PERSONALITY_DIMS_RECRUITER, REMOTE_OPTIONS_RECRUITER,
+  INDUSTRIES, EDUCATION_LEVELS, CULTURE_DESCRIPTORS, EMPLOYMENT_TYPES,
+  MGMT_STYLES, TRAVEL_LEVELS, SCORE_DIMS, PERSONALITY_DIMS_RECRUITER,
+  REMOTE_OPTIONS_RECRUITER, SKILL_SUGGESTIONS,
 } from '@/lib/constants';
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
@@ -19,16 +19,16 @@ const C = {
 const F = "'Plus Jakarta Sans','Helvetica Neue',sans-serif";
 
 // ── UI components ─────────────────────────────────────────────────────────────
-function Card({children,style={}}:{children:React.ReactNode;style?:CSSProperties}){return<div style={{background:C.white,borderRadius:14,border:`1px solid ${C.border}`,padding:'26px 24px',...style}}>{children}</div>;}
+function Card({children,style={}}:{children:React.ReactNode;style?:React.CSSProperties}){return<div style={{background:C.white,borderRadius:14,border:`1px solid ${C.border}`,padding:'26px 24px',...style}}>{children}</div>;}
 function SLabel({children}:{children:React.ReactNode}){return<div style={{fontSize:11,fontWeight:700,color:C.teal,textTransform:'uppercase',letterSpacing:1.4,marginBottom:5,fontFamily:F}}>{children}</div>;}
 function QLabel({children,required,optional}:{children:React.ReactNode;required?:boolean;optional?:boolean}){return<div style={{fontSize:15,fontWeight:600,color:C.slate,marginBottom:8,fontFamily:F,lineHeight:1.4,display:'flex',alignItems:'center',gap:8}}><span>{children}</span>{required&&<span style={{color:C.red,fontSize:12}}>*</span>}{optional&&<span style={{fontSize:11,fontWeight:600,color:C.gray400,background:C.gray100,padding:'2px 7px',borderRadius:8}}>optional</span>}</div>;}
 function Sub({children}:{children:React.ReactNode}){return<div style={{fontSize:13,color:C.gray600,marginBottom:11,fontFamily:F,lineHeight:1.5}}>{children}</div>;}
 function Divider(){return<div style={{borderTop:`1px solid ${C.border}`,margin:'22px 0'}}/>;}
-function FInput({value,onChange,placeholder,type='text'}:{value:string;onChange:(v:string)=>void;placeholder?:string;type?:string}){const s:CSSProperties={width:'100%',padding:'10px 13px',borderRadius:8,background:C.bg,border:`1.5px solid ${C.border}`,color:C.slate,fontSize:14,outline:'none',boxSizing:'border-box',fontFamily:F};return<input type={type} value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} style={s}/>;}
+function FInput({value,onChange,placeholder,type='text'}:{value:string;onChange:(v:string)=>void;placeholder?:string;type?:string}){return<input type={type} value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} style={{width:'100%',padding:'10px 13px',borderRadius:8,background:C.bg,border:`1.5px solid ${C.border}`,color:C.slate,fontSize:14,outline:'none',boxSizing:'border-box' as const,fontFamily:F}}/>;}
 function FTextarea({value,onChange,placeholder,rows=3}:{value:string;onChange:(v:string)=>void;placeholder?:string;rows?:number}){return<textarea value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} rows={rows} style={{width:'100%',padding:'10px 13px',borderRadius:8,background:C.bg,border:`1.5px solid ${C.border}`,color:C.slate,fontSize:14,outline:'none',boxSizing:'border-box' as const,fontFamily:F,resize:'vertical',lineHeight:1.55}}/>;}
 function FSelect({value,onChange,options,placeholder}:{value:string;onChange:(v:string)=>void;options:string[];placeholder?:string}){return<select value={value} onChange={e=>onChange(e.target.value)} style={{width:'100%',padding:'10px 13px',borderRadius:8,background:C.bg,border:`1.5px solid ${C.border}`,color:value?C.slate:C.gray400,fontSize:14,outline:'none',boxSizing:'border-box' as const,fontFamily:F,cursor:'pointer'}}><option value="">{placeholder||'Select...'}</option>{options.map(o=><option key={o} value={o}>{o}</option>)}</select>;}
 function RadioGroup({options,value,onChange}:{options:string[];value:string;onChange:(v:string)=>void}){return<div style={{display:'flex',flexDirection:'column',gap:7}}>{options.map(o=><button key={o} onClick={()=>onChange(o)} style={{background:value===o?C.tealDim:C.bg,border:`1.5px solid ${value===o?C.teal:C.border}`,borderRadius:8,padding:'10px 13px',color:value===o?C.teal:C.gray600,fontWeight:value===o?600:400,fontSize:13,cursor:'pointer',textAlign:'left',fontFamily:F,transition:'all .15s'}}>{o}</button>)}</div>;}
-function MultiPill({options,values,onChange,max}:{options:string[];values:string[];onChange:(v:string[])=>void;max?:number}){function toggle(v:string){if(values.includes(v))onChange(values.filter(x=>x!==v));else if(!max||values.length<max)onChange([...values,v]);}return<div style={{display:'flex',flexWrap:'wrap',gap:7}}>{options.map(o=><button key={o} onClick={()=>toggle(o)} style={{padding:'6px 13px',borderRadius:20,background:values.includes(o)?C.tealDim:C.bg,border:`1.5px solid ${values.includes(o)?C.teal:C.border}`,color:values.includes(o)?C.teal:C.gray600,fontWeight:values.includes(o)?700:400,fontSize:13,cursor:'pointer',fontFamily:F,transition:'all .15s'}}>{o}</button>)}</div>;}
+function MultiPill({options,values,onChange}:{options:string[];values:string[];onChange:(v:string[])=>void}){function toggle(v:string){onChange(values.includes(v)?values.filter(x=>x!==v):[...values,v]);}return<div style={{display:'flex',flexWrap:'wrap',gap:7}}>{options.map(o=><button key={o} onClick={()=>toggle(o)} style={{padding:'6px 13px',borderRadius:20,background:values.includes(o)?C.tealDim:C.bg,border:`1.5px solid ${values.includes(o)?C.teal:C.border}`,color:values.includes(o)?C.teal:C.gray600,fontWeight:values.includes(o)?700:400,fontSize:13,cursor:'pointer',fontFamily:F,transition:'all .15s'}}>{o}</button>)}</div>;}
 
 function MultiDropdown({options,values,onChange,placeholder,max}:{options:string[];values:string[];onChange:(v:string[])=>void;placeholder?:string;max?:number}){
   const [open,setOpen]=useState(false);
@@ -54,8 +54,23 @@ function MultiDropdown({options,values,onChange,placeholder,max}:{options:string
   </div>;
 }
 
-function MaxSlider({value,onChange,min,max,step=1,format}:{value:number;onChange:(v:number)=>void;min:number;max:number;step?:number;format:(v:number)=>string}){return<div><input type="range" min={min} max={max} step={step} value={value} onChange={e=>onChange(+e.target.value)} style={{width:'100%',accentColor:C.teal}}/><div style={{display:'flex',justifyContent:'space-between',marginTop:3}}><span style={{fontSize:12,color:C.gray400,fontFamily:F}}>{format(min)}</span><span style={{fontSize:14,fontWeight:800,color:C.teal,fontFamily:F}}>{format(value)}</span><span style={{fontSize:12,color:C.gray400,fontFamily:F}}>{format(max)}</span></div></div>;}
-function RangeSlider({minVal,maxVal,onMin,onMax,min,max,step=1,format}:{minVal:number;maxVal:number;onMin:(v:number)=>void;onMax:(v:number)=>void;min:number;max:number;step?:number;format:(v:number)=>string}){return<div style={{display:'flex',gap:18}}><div style={{flex:1}}><div style={{fontSize:11,color:C.gray600,marginBottom:4,fontFamily:F}}>Minimum</div><input type="range" min={min} max={max} step={step} value={minVal} onChange={e=>onMin(Math.min(+e.target.value,maxVal-step))} style={{width:'100%',accentColor:C.teal}}/><div style={{fontSize:14,fontWeight:800,color:C.teal,marginTop:3,fontFamily:F}}>{format(minVal)}</div></div><div style={{flex:1}}><div style={{fontSize:11,color:C.gray600,marginBottom:4,fontFamily:F}}>Maximum</div><input type="range" min={min} max={max} step={step} value={maxVal} onChange={e=>onMax(Math.max(+e.target.value,minVal+step))} style={{width:'100%',accentColor:C.teal}}/><div style={{fontSize:14,fontWeight:800,color:C.teal,marginTop:3,fontFamily:F}}>{format(maxVal)}</div></div></div>;}
+function TagInput({values,onChange,suggestions,placeholder}:{values:string[];onChange:(v:string[])=>void;suggestions:string[];placeholder?:string}){
+  const [input,setInput]=useState('');
+  const [showSug,setShowSug]=useState(false);
+  const filtered=input.length>1?suggestions.filter(s=>s.toLowerCase().includes(input.toLowerCase())&&!values.includes(s)).slice(0,8):[];
+  function add(val:string){const v=val.trim();if(!v||values.includes(v))return;onChange([...values,v]);setInput('');setShowSug(false);}
+  function remove(v:string){onChange(values.filter(x=>x!==v));}
+  return<div style={{position:'relative'}}>
+    <div style={{minHeight:44,padding:'6px 10px',borderRadius:8,background:C.bg,border:`1.5px solid ${C.border}`,display:'flex',flexWrap:'wrap',gap:5,alignItems:'center',cursor:'text'}}>
+      {values.map(v=><span key={v} style={{background:C.tealDim,border:`1px solid ${C.tealBorder}`,color:C.teal,borderRadius:12,padding:'3px 10px',fontSize:12,fontWeight:600,fontFamily:F,display:'flex',alignItems:'center',gap:4}}>{v}<span onClick={()=>remove(v)} style={{cursor:'pointer',fontWeight:700,fontSize:13}}>×</span></span>)}
+      <input value={input} onChange={e=>{setInput(e.target.value);setShowSug(true);}} onKeyDown={e=>{if(e.key==='Enter'||e.key===','){e.preventDefault();add(input);}if(e.key==='Backspace'&&!input&&values.length){remove(values[values.length-1]);}}} onFocus={()=>setShowSug(true)} placeholder={values.length===0?placeholder:''} style={{border:'none',outline:'none',background:'none',fontSize:13,color:C.slate,fontFamily:F,minWidth:120,flex:1}}/>
+    </div>
+    {showSug&&filtered.length>0&&<div style={{position:'absolute',top:'100%',left:0,right:0,background:C.white,border:`1.5px solid ${C.teal}`,borderRadius:8,marginTop:3,zIndex:50,boxShadow:'0 4px 16px rgba(0,0,0,0.1)'}}>
+      {filtered.map(s=><div key={s} onClick={()=>add(s)} style={{padding:'9px 14px',cursor:'pointer',fontSize:13,color:C.slate,fontFamily:F}}>{s}</div>)}
+      {input.length>1&&!suggestions.includes(input)&&<div onClick={()=>add(input)} style={{padding:'9px 14px',cursor:'pointer',fontSize:13,color:C.teal,fontWeight:600,fontFamily:F,borderTop:`1px solid ${C.border}`}}>+ Add "{input}"</div>}
+    </div>}
+  </div>;
+}
 
 function ScaleQ({question,low,high,value,onChange}:{question:string;low:string;high:string;value:number|undefined;onChange:(v:number)=>void}){return<div style={{marginBottom:20}}>
   <div style={{fontSize:14,fontWeight:500,color:C.slate,marginBottom:8,fontFamily:F,lineHeight:1.45}}>{question}</div>
@@ -65,6 +80,10 @@ function ScaleQ({question,low,high,value,onChange}:{question:string;low:string;h
     <span style={{fontSize:11,color:C.gray600,width:110,flexShrink:0,textAlign:'right',lineHeight:1.3}}>{high}</span>
   </div>
 </div>;}
+
+function MaxSlider({value,onChange,min,max,step=1,format}:{value:number;onChange:(v:number)=>void;min:number;max:number;step?:number;format:(v:number)=>string}){return<div><input type="range" min={min} max={max} step={step} value={value} onChange={e=>onChange(+e.target.value)} style={{width:'100%',accentColor:C.teal}}/><div style={{display:'flex',justifyContent:'space-between',marginTop:3}}><span style={{fontSize:12,color:C.gray400,fontFamily:F}}>{format(min)}</span><span style={{fontSize:14,fontWeight:800,color:C.teal,fontFamily:F}}>{format(value)}</span><span style={{fontSize:12,color:C.gray400,fontFamily:F}}>{format(max)}</span></div></div>;}
+
+function RangeSlider({minVal,maxVal,onMin,onMax,min,max,step=1,format}:{minVal:number;maxVal:number;onMin:(v:number)=>void;onMax:(v:number)=>void;min:number;max:number;step?:number;format:(v:number)=>string}){return<div style={{display:'flex',gap:18}}><div style={{flex:1}}><div style={{fontSize:11,color:C.gray600,marginBottom:4,fontFamily:F}}>Minimum</div><input type="range" min={min} max={max} step={step} value={minVal} onChange={e=>onMin(Math.min(+e.target.value,maxVal-step))} style={{width:'100%',accentColor:C.teal}}/><div style={{fontSize:14,fontWeight:800,color:C.teal,marginTop:3,fontFamily:F}}>{format(minVal)}</div></div><div style={{flex:1}}><div style={{fontSize:11,color:C.gray600,marginBottom:4,fontFamily:F}}>Maximum</div><input type="range" min={min} max={max} step={step} value={maxVal} onChange={e=>onMax(Math.max(+e.target.value,minVal+step))} style={{width:'100%',accentColor:C.teal}}/><div style={{fontSize:14,fontWeight:800,color:C.teal,marginTop:3,fontFamily:F}}>{format(maxVal)}</div></div></div>;}
 
 function WeightSlider({label,value,onChange}:{label:string;value:number;onChange:(v:number)=>void}){
   const labels=['Not important','Low','Medium','High','Critical'];
@@ -93,35 +112,37 @@ type RecruiterDraft = {
   remotePolicy:string; officeLocation:string; startDate:string; managingReports:string;
   travel:string; jobDesc:string;
   minExp:number; minEducation:string; requiredSkills:string[]; niceSkills:string[];
-  softSkills:string[]; preferredIndustries:string[]; requiredCerts:string; workAuth:string;
+  preferredIndustries:string[]; requiredCerts:string; workAuth:string;
   showSalary:boolean; salaryMin:number; salaryMax:number; bonus:string;
-  showEquity:boolean; equityType:string; benefits:string[]; compNotes:string;
+  showEquity:boolean; equityType:string; benefits:string[];
   teamCulture:string[]; mgmtStyle:string; feedbackCulture:string;
   personality:Record<string,number>; successIn90:string; whoStruggles:string;
   weights:Record<string,number>; otherNotes:string;
 };
+type SetD = React.Dispatch<React.SetStateAction<RecruiterDraft>>;
+type SecProps = { d:RecruiterDraft; set:SetD };
 
 const INIT:RecruiterDraft={
   companyName:'',website:'',industry:[],companySize:'',stage:'',hqLocation:'',companyDesc:'',
   jobTitle:'',department:'',reportsTo:'',employmentType:[],remotePolicy:'',officeLocation:'',
   startDate:'',managingReports:'',travel:'',jobDesc:'',
-  minExp:2,minEducation:'',requiredSkills:[],niceSkills:[],softSkills:[],
+  minExp:2,minEducation:'',requiredSkills:[],niceSkills:[],
   preferredIndustries:[],requiredCerts:'',workAuth:'',
   showSalary:false,salaryMin:80,salaryMax:150,bonus:'',
-  showEquity:false,equityType:'',benefits:[],compNotes:'',
+  showEquity:false,equityType:'',benefits:[],
   teamCulture:[],mgmtStyle:'',feedbackCulture:'',personality:{},successIn90:'',whoStruggles:'',
   weights:{skills:3,salary:3,experience:3,education:2,culture:3,location:2,availability:2,workStyle:3},
   otherNotes:'',
 };
 
 // ── Sections ──────────────────────────────────────────────────────────────────
-function S1({d,set}:{d:RecruiterDraft;set:React.Dispatch<React.SetStateAction<RecruiterDraft>>}){return<>
+function S1({d,set}:SecProps){return<>
   <SLabel>Section 1</SLabel>
   <h2 style={{fontSize:21,fontWeight:800,color:C.slate,margin:'0 0 3px',letterSpacing:-0.5,fontFamily:F}}>Company Information</h2>
   <Sub>Appears on your company profile and all job posts. Helps candidates understand who they'd work for.</Sub>
   <Divider/>
   <div style={{marginBottom:12}}><QLabel required>Company name</QLabel><FInput value={d.companyName} onChange={v=>set(x=>({...x,companyName:v}))} placeholder="e.g. Acme Corp"/></div>
-  <div style={{marginBottom:12}}><QLabel optional>Company website</QLabel><FInput value={d.website} onChange={v=>set(x=>({...x,website:v}))} placeholder="https://yourcompany.com"/></div>
+  <div style={{marginBottom:12}}><QLabel required>Company website</QLabel><FInput value={d.website} onChange={v=>set(x=>({...x,website:v}))} placeholder="https://yourcompany.com"/></div>
   <div style={{marginBottom:12}}><QLabel required>Industry (up to 3)</QLabel><MultiDropdown options={INDUSTRIES} values={d.industry} onChange={v=>v.length<=3&&set(x=>({...x,industry:v}))} placeholder="Select up to 3 industries..." max={3}/>{d.industry.length>0&&<div style={{fontSize:12,color:C.gray400,marginTop:6,fontFamily:F}}>{d.industry.length}/3 selected</div>}</div>
   <Divider/>
   <QLabel required>Company size</QLabel>
@@ -130,14 +151,15 @@ function S1({d,set}:{d:RecruiterDraft;set:React.Dispatch<React.SetStateAction<Re
   <QLabel required>Stage / type</QLabel>
   <RadioGroup options={['Early-stage startup (pre-Series A)','Growth-stage startup (Series A–C)','Late-stage / pre-IPO','Publicly traded','Private company (established)','Non-profit / NGO','Government / Public sector','Family-owned business']} value={d.stage} onChange={v=>set(x=>({...x,stage:v}))}/>
   <Divider/>
-  <div style={{marginBottom:12}}><QLabel required>Headquarters location</QLabel><FInput value={d.hqLocation} onChange={v=>set(x=>({...x,hqLocation:v}))} placeholder="e.g. Chicago, IL"/></div>
+  <QLabel required>Headquarters location</QLabel>
+  <FInput value={d.hqLocation} onChange={v=>set(x=>({...x,hqLocation:v}))} placeholder="e.g. Chicago, IL"/>
   <Divider/>
   <QLabel optional>Company description</QLabel>
   <NudgeBanner>Companies with a description get 40% more candidate interest. Takes 2 minutes.</NudgeBanner>
   <FTextarea value={d.companyDesc} onChange={v=>set(x=>({...x,companyDesc:v}))} placeholder="What do you do and why does it matter? 2–3 sentences." rows={4}/>
 </>;}
 
-function S2({d,set}:{d:RecruiterDraft;set:React.Dispatch<React.SetStateAction<RecruiterDraft>>}){return<>
+function S2({d,set}:SecProps){return<>
   <SLabel>Section 2</SLabel>
   <h2 style={{fontSize:21,fontWeight:800,color:C.slate,margin:'0 0 3px',letterSpacing:-0.5,fontFamily:F}}>Role Details</h2>
   <Sub>The specifics of the position you're hiring for.</Sub>
@@ -167,7 +189,7 @@ function S2({d,set}:{d:RecruiterDraft;set:React.Dispatch<React.SetStateAction<Re
   <FTextarea value={d.jobDesc} onChange={v=>set(x=>({...x,jobDesc:v}))} placeholder="What will this person own? What problems will they solve? What does a great day look like?" rows={6}/>
 </>;}
 
-function S3({d,set}:{d:RecruiterDraft;set:React.Dispatch<React.SetStateAction<RecruiterDraft>>}){
+function S3({d,set}:SecProps){
   const fmtYrs=(v:number)=>v>=15?'15+ yrs':`${v} yr${v===1?'':'s'}`;
   return<>
     <SLabel>Section 3</SLabel>
@@ -175,24 +197,21 @@ function S3({d,set}:{d:RecruiterDraft;set:React.Dispatch<React.SetStateAction<Re
     <Sub>What does the right person actually need? Be honest — over-specifying filters out great candidates.</Sub>
     <Divider/>
     <QLabel required>Minimum years of experience</QLabel>
-    <Sub>The floor, not the ideal. If someone with less could still do the job well, set it lower.</Sub>
+    <Sub>The floor, not the ideal.</Sub>
     <MaxSlider value={d.minExp} onChange={v=>set(x=>({...x,minExp:v}))} min={0} max={15} step={1} format={fmtYrs}/>
     <Divider/>
     <QLabel required>Minimum education level</QLabel>
     <FSelect value={d.minEducation} onChange={v=>set(x=>({...x,minEducation:v}))} options={EDUCATION_LEVELS} placeholder="Select minimum education..."/>
     <Divider/>
-    <QLabel required>Required hard skills</QLabel>
-    <Sub>Only include skills that are genuinely required — not a wishlist.</Sub>
-    <MultiDropdown options={TECH_SKILLS} values={d.requiredSkills} onChange={v=>set(x=>({...x,requiredSkills:v}))} placeholder="Search and select required skills..."/>
-    {d.requiredSkills.length>0&&<div style={{fontSize:12,color:C.gray400,marginTop:6,fontFamily:F}}>{d.requiredSkills.length} selected</div>}
+    <QLabel required>Required skills</QLabel>
+    <Sub>Only include skills that are genuinely required — not a wishlist. Type + Enter to add.</Sub>
+    <TagInput values={d.requiredSkills} onChange={v=>set(x=>({...x,requiredSkills:v}))} suggestions={SKILL_SUGGESTIONS} placeholder="e.g. Product Management, SQL, Stakeholder management..."/>
+    {d.requiredSkills.length>0&&<div style={{fontSize:12,color:C.gray400,marginTop:6,fontFamily:F}}>{d.requiredSkills.length} required skills</div>}
     <Divider/>
     <QLabel optional>Nice-to-have skills</QLabel>
-    <MultiDropdown options={TECH_SKILLS} values={d.niceSkills} onChange={v=>set(x=>({...x,niceSkills:v}))} placeholder="Search and select nice-to-have skills..."/>
-    {d.niceSkills.length>0&&<div style={{fontSize:12,color:C.gray400,marginTop:6,fontFamily:F}}>{d.niceSkills.length} selected</div>}
-    <Divider/>
-    <QLabel optional>Soft skills you're prioritizing (up to 5)</QLabel>
-    <MultiDropdown options={SOFT_SKILLS} values={d.softSkills} onChange={v=>v.length<=5&&set(x=>({...x,softSkills:v}))} placeholder="Search and select soft skills..." max={5}/>
-    {d.softSkills.length>0&&<div style={{fontSize:12,color:C.gray400,marginTop:6,fontFamily:F}}>{d.softSkills.length}/5 selected</div>}
+    <Sub>Skills that help a candidate stand out but aren't dealbreakers.</Sub>
+    <TagInput values={d.niceSkills} onChange={v=>set(x=>({...x,niceSkills:v}))} suggestions={SKILL_SUGGESTIONS} placeholder="e.g. Tableau, Six Sigma, Mandarin..."/>
+    {d.niceSkills.length>0&&<div style={{fontSize:12,color:C.gray400,marginTop:6,fontFamily:F}}>{d.niceSkills.length} nice-to-have skills</div>}
     <Divider/>
     <QLabel optional>Preferred industries candidates have worked in</QLabel>
     <Sub>Leave blank if you're open to any background.</Sub>
@@ -205,14 +224,14 @@ function S3({d,set}:{d:RecruiterDraft;set:React.Dispatch<React.SetStateAction<Re
     <RadioGroup options={['Must be authorized without sponsorship','We can sponsor H-1B visas','We can sponsor all visa types','No restriction']} value={d.workAuth} onChange={v=>set(x=>({...x,workAuth:v}))}/>
   </>;}
 
-function S4({d,set}:{d:RecruiterDraft;set:React.Dispatch<React.SetStateAction<RecruiterDraft>>}){
+function S4({d,set}:SecProps){
   const fmtSalary=(v:number)=>v>=500?'$500k+':`$${v}k`;
   return<>
     <SLabel>Section 4</SLabel>
     <h2 style={{fontSize:21,fontWeight:800,color:C.slate,margin:'0 0 3px',letterSpacing:-0.5,fontFamily:F}}>Compensation & Benefits</h2>
     <Sub>You're never required to share this — but candidates who see salary ranges are 3× more likely to apply.</Sub>
     <Divider/>
-    <QLabel optional>Base salary range</QLabel>
+    <QLabel optional>Salary range</QLabel>
     <NudgeBanner>Roles with salary ranges get significantly more qualified applicants. Candidates self-select in and out — saving everyone time.</NudgeBanner>
     <Toggle label="Share salary range with candidates" value={d.showSalary} onChange={v=>set(x=>({...x,showSalary:v}))}/>
     {d.showSalary&&<div style={{marginTop:12}}><RangeSlider minVal={d.salaryMin} maxVal={d.salaryMax} onMin={v=>set(x=>({...x,salaryMin:v}))} onMax={v=>set(x=>({...x,salaryMax:v}))} min={30} max={500} step={5} format={fmtSalary}/></div>}
@@ -221,24 +240,21 @@ function S4({d,set}:{d:RecruiterDraft;set:React.Dispatch<React.SetStateAction<Re
     <RadioGroup options={['No bonus','Discretionary bonus','Performance-based bonus','Commission-based','Profit sharing','Prefer not to share']} value={d.bonus} onChange={v=>set(x=>({...x,bonus:v}))}/>
     <Divider/>
     <QLabel optional>Equity / stock options</QLabel>
-    <NudgeBanner>Equity is a major differentiator for top candidates, especially at startups. Even a rough range helps.</NudgeBanner>
+    <NudgeBanner>Equity is a major differentiator for top candidates, especially at startups.</NudgeBanner>
     <Toggle label="Share equity information" value={d.showEquity} onChange={v=>set(x=>({...x,showEquity:v}))}/>
     {d.showEquity&&<div style={{marginTop:10}}><RadioGroup options={['Stock options (ISO/NSO)','RSUs (Restricted Stock Units)','Phantom equity / profit interest','No equity for this role']} value={d.equityType} onChange={v=>set(x=>({...x,equityType:v}))}/></div>}
     <Divider/>
     <QLabel optional>Benefits offered</QLabel>
     <MultiPill options={['Health insurance (medical)','Dental & vision','401(k) / retirement','401(k) matching','Unlimited PTO','Paid parental leave','Life insurance','Disability insurance','HSA / FSA','Remote work stipend','Home office stipend','Learning & development budget','Gym / wellness reimbursement','Commuter benefits','Stock purchase plan','Mental health benefits','Flexible hours','4-day work week']} values={d.benefits} onChange={v=>set(x=>({...x,benefits:v}))}/>
-    <Divider/>
-    <QLabel optional>Anything else about compensation worth sharing?</QLabel>
-    <FTextarea value={d.compNotes} onChange={v=>set(x=>({...x,compNotes:v}))} placeholder="e.g. We benchmark to the 75th percentile. Salary reviewed annually. Signing bonus available for senior hires..." rows={3}/>
   </>;}
 
-function S5({d,set}:{d:RecruiterDraft;set:React.Dispatch<React.SetStateAction<RecruiterDraft>>}){return<>
+function S5({d,set}:SecProps){return<>
   <SLabel>Section 5</SLabel>
   <h2 style={{fontSize:21,fontWeight:800,color:C.slate,margin:'0 0 3px',letterSpacing:-0.5,fontFamily:F}}>Culture & Personality Fit</h2>
   <Sub>This is how we match candidates to your team's actual dynamic. The more honest you are, the better the matches.</Sub>
   <Divider/>
   <QLabel required>How would you describe your team's culture?</QLabel>
-  <Sub>These exact descriptors are what candidates use to describe what they're looking for — so overlap = culture match score.</Sub>
+  <Sub>These exact descriptors are what candidates use when describing what they want — overlap = culture match score.</Sub>
   <MultiPill options={CULTURE_DESCRIPTORS} values={d.teamCulture} onChange={v=>set(x=>({...x,teamCulture:v}))}/>
   {d.teamCulture.length>0&&<div style={{fontSize:12,color:C.gray400,marginTop:7,fontFamily:F}}>{d.teamCulture.length} selected</div>}
   <Divider/>
@@ -249,7 +265,7 @@ function S5({d,set}:{d:RecruiterDraft;set:React.Dispatch<React.SetStateAction<Re
   <RadioGroup options={['Real-time — as things happen','Regular check-ins (weekly or bi-weekly)','Formal periodic reviews (quarterly)','As-needed — people ask when they want it']} value={d.feedbackCulture} onChange={v=>set(x=>({...x,feedbackCulture:v}))}/>
   <Divider/>
   <div style={{background:C.tealDim,border:`1px solid ${C.tealBorder}`,borderRadius:9,padding:'12px 14px',marginBottom:20}}>
-    <p style={{fontSize:13,color:C.teal,fontWeight:600,margin:0,fontFamily:F}}>Rate what this role actually requires 1–5. 1 = strongly left, 5 = strongly right, 3 = balanced. These are matched against how candidates rate themselves.</p>
+    <p style={{fontSize:13,color:C.teal,fontWeight:600,margin:0,fontFamily:F}}>Rate what this role requires 1–5. These are matched against how candidates rate themselves — the closer the scores, the higher the personality match.</p>
   </div>
   {PERSONALITY_DIMS_RECRUITER.map(q=><ScaleQ key={q.id} question={q.q} low={q.low} high={q.high} value={d.personality?.[q.id]} onChange={v=>set(x=>({...x,personality:{...x.personality,[q.id]:v}}))}/>)}
   <Divider/>
@@ -258,41 +274,35 @@ function S5({d,set}:{d:RecruiterDraft;set:React.Dispatch<React.SetStateAction<Re
   <Divider/>
   <QLabel optional>What type of person struggles in this role?</QLabel>
   <Sub>Honest answers here save everyone time — candidates who aren't a fit will self-select out.</Sub>
-  <FTextarea value={d.whoStruggles} onChange={v=>set(x=>({...x,whoStruggles:v}))} placeholder="e.g. Someone who needs a lot of direction or prefers a structured, predictable environment may find this role challenging..." rows={3}/>
+  <FTextarea value={d.whoStruggles} onChange={v=>set(x=>({...x,whoStruggles:v}))} placeholder="e.g. Someone who needs a lot of direction or prefers a structured, predictable environment..." rows={3}/>
 </>;}
 
-function S6({d,set}:{d:RecruiterDraft;set:React.Dispatch<React.SetStateAction<RecruiterDraft>>}){return<>
+function S6({d,set}:SecProps){return<>
   <SLabel>Section 6</SLabel>
   <h2 style={{fontSize:21,fontWeight:800,color:C.slate,margin:'0 0 3px',letterSpacing:-0.5,fontFamily:F}}>Scoring Weights</h2>
-  <Sub>How much should each dimension matter when we rank candidates for this role? A sales role might weight personality highly. An engineering role might make hard skills critical.</Sub>
+  <Sub>How much should each dimension matter when we rank candidates for this role? These weights directly affect who shows up at the top of your list.</Sub>
   <Divider/>
   <div style={{background:C.tealDim,border:`1px solid ${C.tealBorder}`,borderRadius:9,padding:'12px 14px',marginBottom:22}}>
-    <p style={{fontSize:13,color:C.teal,fontWeight:600,margin:0,fontFamily:F}}>These weights are unique to this job posting and directly affect who shows up at the top of your candidate list.</p>
+    <p style={{fontSize:13,color:C.teal,fontWeight:600,margin:0,fontFamily:F}}>These weights are unique to this posting. A sales role might make personality critical. An engineering role might make hard skills critical.</p>
   </div>
   {SCORE_DIMS.map(({key,label})=><WeightSlider key={key} label={label} value={d.weights[key]??3} onChange={v=>set(x=>({...x,weights:{...x.weights,[key]:v}}))}/>)}
   <Divider/>
-  <QLabel optional>Anything else that matters for this role that we haven't asked?</QLabel>
-  <FTextarea value={d.otherNotes} onChange={v=>set(x=>({...x,otherNotes:v}))} placeholder="e.g. Must be based in CST/EST time zone. Experience with Series A companies strongly preferred. Bilingual Spanish a major plus..." rows={3}/>
+  <QLabel optional>Anything else that matters for this role?</QLabel>
+  <FTextarea value={d.otherNotes} onChange={v=>set(x=>({...x,otherNotes:v}))} placeholder="e.g. Must be based in CST/EST time zone. Bilingual Spanish a major plus. Experience with Series A companies strongly preferred..." rows={3}/>
 </>;}
 
 function Review({data}:{data:RecruiterDraft}){
   const fmtSalary=(v:number)=>v>=500?'$500k+':`$${v}k`;
   const rows:[string,string][]=[
-    ['Company',data.companyName],
-    ['Industry',data.industry?.join(', ')??''],
-    ['Company size',data.companySize],
-    ['Job title',data.jobTitle],
-    ['Employment type',data.employmentType?.join(', ')??''],
-    ['Remote policy',data.remotePolicy],
-    ['Start date',data.startDate],
-    ['Min. experience',data.minExp!==undefined?`${data.minExp}+ yrs`:''],
+    ['Company',data.companyName],['Industry',data.industry?.join(', ')??''],
+    ['Company size',data.companySize],['Job title',data.jobTitle],
+    ['Employment type',data.employmentType?.join(', ')??''],['Remote policy',data.remotePolicy],
+    ['Start date',data.startDate],['Min. experience',data.minExp!==undefined?`${data.minExp}+ yrs`:''],
     ['Min. education',data.minEducation],
-    ['Required skills',data.requiredSkills?.slice(0,3).join(', ')+(data.requiredSkills?.length>3?` +${data.requiredSkills.length-3} more`:'')],
+    ['Required skills',data.requiredSkills?.slice(0,4).join(', ')+(data.requiredSkills?.length>4?`+${data.requiredSkills.length-4} more`:'')],
     ['Salary range',data.showSalary&&data.salaryMin&&data.salaryMax?`${fmtSalary(data.salaryMin)} – ${fmtSalary(data.salaryMax)}`:'Not shared'],
-    ['Equity',data.showEquity?data.equityType||'Will share':'Not shared'],
     ['Team culture',data.teamCulture?.slice(0,3).join(', ')??''],
-    ['Management style',data.mgmtStyle],
-    ['Work authorization',data.workAuth],
+    ['Management style',data.mgmtStyle],['Work authorization',data.workAuth],
   ];
   return<>
     <SLabel>Almost done</SLabel>
@@ -310,14 +320,10 @@ function Review({data}:{data:RecruiterDraft}){
     </div>
   </>;}
 
-// ── Sections registry ─────────────────────────────────────────────────────────
+// ── Section registry ──────────────────────────────────────────────────────────
 const SECTIONS=[
-  {label:'Company',    Comp:S1},
-  {label:'Role Details',Comp:S2},
-  {label:'Requirements',Comp:S3},
-  {label:'Compensation',Comp:S4},
-  {label:'Culture & Fit',Comp:S5},
-  {label:'Scoring',   Comp:S6},
+  {label:'Company',    Comp:S1},{label:'Role Details',Comp:S2},{label:'Requirements',Comp:S3},
+  {label:'Compensation',Comp:S4},{label:'Culture & Fit',Comp:S5},{label:'Scoring',Comp:S6},
 ];
 
 // ── Page ──────────────────────────────────────────────────────────────────────
@@ -328,6 +334,7 @@ export default function RecruiterPost(){
   const [step,setStep]=useState(0);
   const [data,setData]=useState<RecruiterDraft>(INIT);
   const [posting,setPosting]=useState(false);
+  const [postError,setPostError]=useState('');
   const [done,setDone]=useState(false);
   const total=SECTIONS.length;
   const isReview=step===total;
@@ -336,88 +343,85 @@ export default function RecruiterPost(){
 
   async function post(){
     if(!profile)return;
-    setPosting(true);
+    setPosting(true);setPostError('');
+    try{
+      // Update recruiter company profile
+      await supabase.from('profiles').update({
+        company_name:data.companyName||null,
+        company_website:data.website||null,
+        company_stage:data.stage||null,
+        company_desc:data.companyDesc||null,
+        location:data.hqLocation||null,
+      }).eq('id',profile.id);
 
-    // Update recruiter profile with company info
-    await supabase.from('profiles').update({
-      company_name:data.companyName||null,
-      company_website:data.website||null,
-      company_stage:data.stage||null,
-      company_desc:data.companyDesc||null,
-      location:data.hqLocation||null,
-    }).eq('id',profile.id);
+      const {data:job,error}=await supabase.from('jobs').insert({
+        recruiter_id:profile.id,
+        // S1: Company
+        company_name:data.companyName||null,
+        company_website:data.website||null,
+        company_industries:data.industry,
+        company_size:data.companySize||null,
+        company_stage:data.stage||null,
+        hq_location:data.hqLocation||null,
+        company_desc:data.companyDesc||null,
+        // S2: Role
+        title:data.jobTitle,
+        department:data.department||null,
+        reports_to:data.reportsTo||null,
+        employment_type:data.employmentType,
+        remote_policy:data.remotePolicy||null,
+        office_location:data.officeLocation||null,
+        start_date:data.startDate||null,
+        managing_reports:data.managingReports||null,
+        travel:data.travel||null,
+        description:data.jobDesc||null,
+        // S3: Requirements
+        min_exp:data.minExp,
+        min_education:data.minEducation||null,
+        required_skills:data.requiredSkills,
+        nice_skills:data.niceSkills,
+        soft_skills_required:[],
+        preferred_industries:data.preferredIndustries,
+        required_certs:data.requiredCerts||null,
+        work_auth:data.workAuth||null,
+        // S4: Compensation
+        show_salary:data.showSalary,
+        salary_min:data.showSalary?(data.salaryMin*1000):null,
+        salary_max:data.showSalary?(data.salaryMax*1000):null,
+        bonus:data.bonus||null,
+        show_equity:data.showEquity,
+        equity_type:data.showEquity?(data.equityType||null):null,
+        benefits:data.benefits,
+        // S5: Culture
+        team_culture:data.teamCulture,
+        mgmt_style:data.mgmtStyle||null,
+        feedback_culture:data.feedbackCulture||null,
+        personality_required:Object.keys(data.personality).length>0?data.personality:null,
+        success_in_90:data.successIn90||null,
+        who_struggles:data.whoStruggles||null,
+        // S6: Weights
+        weight_skills:data.weights.skills??3,
+        weight_salary:data.weights.salary??3,
+        weight_experience:data.weights.experience??3,
+        weight_education:data.weights.education??2,
+        weight_culture:data.weights.culture??3,
+        weight_location:data.weights.location??2,
+        weight_availability:data.weights.availability??2,
+        weight_work_style:data.weights.workStyle??3,
+        weight_personality:2,
+        weight_industry:2,
+        other_notes:data.otherNotes||null,
+        status:'active',
+      }).select('id').single();
 
-    // Insert job posting
-    const {data:job,error}=await supabase.from('jobs').insert({
-      recruiter_id:profile.id,
-      // S1: Company
-      company_name:data.companyName||null,
-      company_website:data.website||null,
-      company_industries:data.industry,
-      company_size:data.companySize||null,
-      company_stage:data.stage||null,
-      hq_location:data.hqLocation||null,
-      company_desc:data.companyDesc||null,
-      // S2: Role
-      title:data.jobTitle,
-      department:data.department||null,
-      reports_to:data.reportsTo||null,
-      employment_type:data.employmentType,
-      remote_policy:data.remotePolicy||null,
-      office_location:data.officeLocation||null,
-      start_date:data.startDate||null,
-      managing_reports:data.managingReports||null,
-      travel:data.travel||null,
-      description:data.jobDesc||null,
-      // S3: Requirements
-      min_exp:data.minExp,
-      min_education:data.minEducation||null,
-      required_skills:data.requiredSkills,
-      nice_skills:data.niceSkills,
-      soft_skills_required:data.softSkills,
-      preferred_industries:data.preferredIndustries,
-      required_certs:data.requiredCerts||null,
-      work_auth:data.workAuth||null,
-      // S4: Compensation
-      show_salary:data.showSalary,
-      salary_min:data.showSalary?(data.salaryMin*1000):null,
-      salary_max:data.showSalary?(data.salaryMax*1000):null,
-      bonus:data.bonus||null,
-      show_equity:data.showEquity,
-      equity_type:data.showEquity?(data.equityType||null):null,
-      benefits:data.benefits,
-      comp_notes:data.compNotes||null,
-      // S5: Culture & Personality
-      team_culture:data.teamCulture,
-      mgmt_style:data.mgmtStyle||null,
-      feedback_culture:data.feedbackCulture||null,
-      personality_required:Object.keys(data.personality).length>0?data.personality:null,
-      success_in_90:data.successIn90||null,
-      who_struggles:data.whoStruggles||null,
-      // S6: Weights
-      weight_skills:data.weights.skills??3,
-      weight_salary:data.weights.salary??3,
-      weight_experience:data.weights.experience??3,
-      weight_education:data.weights.education??2,
-      weight_culture:data.weights.culture??3,
-      weight_location:data.weights.location??2,
-      weight_availability:data.weights.availability??2,
-      weight_work_style:data.weights.workStyle??3,
-      weight_personality:2,
-      weight_industry:2,
-      other_notes:data.otherNotes||null,
-    }).select('id').single();
+      if(error||!job)throw new Error(error?.message??'Job insert failed');
 
-    if(error||!job){setPosting(false);alert('Error posting job: '+(error?.message??'Unknown'));return;}
-
-    // Trigger match scoring in background
-    fetch('/api/match-scores',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({jobId:job.id})});
-
-    // Send recruiter "job is live" email (non-blocking)
-    fetch('/api/email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'recruiter-job-live',recruiterId:profile.id,jobId:job.id})});
-
-    setDone(true);
-    setPosting(false);
+      fetch('/api/match-scores',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({jobId:job.id})});
+      fetch('/api/email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'recruiter-job-live',recruiterId:profile.id,jobId:job.id})});
+      setDone(true);
+    }catch(err:unknown){
+      setPostError((err as Error)?.message||'Error posting job. Please try again.');
+    }finally{setPosting(false);}
   }
 
   if(loading)return<div style={{display:'flex',alignItems:'center',justifyContent:'center',minHeight:'60vh',fontFamily:F,color:C.teal}}>Loading…</div>;
@@ -437,16 +441,12 @@ export default function RecruiterPost(){
   );
 
   const SecComp=!isReview?SECTIONS[step].Comp:null;
-
   return(
     <div style={{background:C.bg,minHeight:'100vh',fontFamily:F,paddingBottom:80}}>
-      {/* Sticky header */}
       <div style={{background:C.white,borderBottom:`1px solid ${C.border}`,padding:'0 24px',height:52,display:'flex',alignItems:'center',justifyContent:'space-between',position:'sticky',top:56,zIndex:99}}>
         <span style={{fontSize:12,color:C.gray400,fontWeight:600,fontFamily:F}}>Post a Job</span>
         <span style={{fontSize:12,color:C.gray600,fontWeight:600,fontFamily:F}}>{isReview?'Review & post':`${step+1} of ${total} — ${SECTIONS[step].label}`}</span>
       </div>
-
-      {/* Section tabs */}
       <div style={{background:C.white,borderBottom:`1px solid ${C.border}`,padding:'0 20px',overflowX:'auto',position:'sticky',top:108,zIndex:98}}>
         <div style={{display:'flex',minWidth:'fit-content'}}>
           {SECTIONS.map((s,i)=>(
@@ -457,13 +457,12 @@ export default function RecruiterPost(){
           <button onClick={()=>go(total)} style={{padding:'9px 12px',border:'none',background:'none',borderBottom:`2.5px solid ${isReview?C.teal:'transparent'}`,color:isReview?C.teal:C.gray400,fontWeight:isReview?700:500,fontSize:12,cursor:'pointer',fontFamily:F,whiteSpace:'nowrap'}}>Review</button>
         </div>
       </div>
-
-      {/* Content */}
       <div style={{maxWidth:640,margin:'28px auto 0',padding:'0 16px'}}>
         <Progress step={step} total={total}/>
         <Card style={{marginBottom:14}}>
           {isReview?<Review data={data}/>:SecComp&&<SecComp d={data} set={setData}/>}
         </Card>
+        {postError&&<div style={{color:C.red,fontSize:13,padding:'9px 12px',background:'#FDF2F2',border:`1px solid ${C.red}44`,borderRadius:7,marginBottom:8,fontFamily:F}}>⚠ {postError}</div>}
         <div style={{display:'flex',gap:9}}>
           {step>0&&<button onClick={()=>go(step-1)} style={{flex:1,padding:'11px 0',borderRadius:8,background:C.white,border:`1.5px solid ${C.border}`,color:C.gray600,fontWeight:600,fontSize:14,cursor:'pointer',fontFamily:F}}>← Back</button>}
           {!isReview
