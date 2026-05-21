@@ -86,6 +86,12 @@ export type Profile = {
   company_stage?: string | null;
   company_desc?: string | null;
 
+  // ── Notification preferences ────────────────────────────────
+  notif_email_matches?: boolean | null;
+  notif_email_viewed?: boolean | null;
+  notif_email_feedback?: boolean | null;
+  notif_sms_alerts?: boolean | null;
+
   // ── Meta ────────────────────────────────────────────────────
   video_url?: string | null;
   profile_complete?: boolean;

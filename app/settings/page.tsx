@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@/app/providers';
 import { createClient } from '@/lib/supabase/client';
@@ -13,22 +13,57 @@ export default function Settings() {
   const supabase = createClient();
   const [tab, setTab] = useState('account');
   const [saved, setSaved] = useState(false);
-  const [form, setForm] = useState({ name: profile?.name ?? '', email: profile?.email ?? '', newPw: '' });
-  const [prefs, setPrefs] = useState({ emailMatches: true, emailViewed: true, emailFeedback: true, smsAlerts: false, visibility: profile?.visibility ?? 'recruiters', searchable: profile?.searchable ?? true });
+  const [deleting, setDeleting] = useState(false);
+  const [form, setForm] = useState({ name: '', email: '', newPw: '' });
+  const [prefs, setPrefs] = useState({
+    emailMatches: true, emailViewed: true, emailFeedback: true,
+    smsAlerts: false, visibility: 'recruiters', searchable: true,
+  });
+
+  // Populate form from profile once loaded
+  useEffect(() => {
+    if (!profile) return;
+    setForm(f => ({ ...f, name: profile.name ?? '', email: profile.email ?? '' }));
+    setPrefs({
+      emailMatches: profile.notif_email_matches ?? true,
+      emailViewed:  profile.notif_email_viewed  ?? true,
+      emailFeedback:profile.notif_email_feedback ?? true,
+      smsAlerts:    profile.notif_sms_alerts     ?? false,
+      visibility:   profile.visibility ?? 'recruiters',
+      searchable:   profile.searchable ?? true,
+    });
+  }, [profile?.id]);
 
   async function save() {
     if (!profile) return;
-    await supabase.from('profiles').update({ name: form.name, email: form.email, visibility: prefs.visibility, searchable: prefs.searchable }).eq('id', profile.id);
+    await supabase.from('profiles').update({
+      name: form.name,
+      email: form.email,
+      visibility: prefs.visibility,
+      searchable: prefs.searchable,
+      notif_email_matches:  prefs.emailMatches,
+      notif_email_viewed:   prefs.emailViewed,
+      notif_email_feedback: prefs.emailFeedback,
+      notif_sms_alerts:     prefs.smsAlerts,
+    }).eq('id', profile.id);
     if (form.newPw.length >= 6) await supabase.auth.updateUser({ password: form.newPw });
     await refreshProfile();
-    setSaved(true); setTimeout(() => setSaved(false), 2500);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2500);
   }
 
   async function deleteAccount() {
     if (!confirm('Delete your account? This cannot be undone.')) return;
-    await supabase.auth.admin.deleteUser(profile!.id).catch(() => {});
-    await supabase.auth.signOut();
-    router.push('/');
+    setDeleting(true);
+    try {
+      const res = await fetch('/api/delete-account', { method: 'POST' });
+      if (!res.ok) throw new Error('Delete failed');
+      await supabase.auth.signOut();
+      router.push('/');
+    } catch {
+      alert('Failed to delete account. Please try again or contact support.');
+      setDeleting(false);
+    }
   }
 
   if (loading) return <Spinner />;
@@ -58,7 +93,9 @@ export default function Settings() {
             </div>
             <div style={{ marginTop: 24, paddingTop: 16, borderTop: `1px solid ${C.border}` }}>
               <h4 style={{ fontSize: 13, fontWeight: 700, color: C.red, margin: '0 0 8px' }}>Danger zone</h4>
-              <button onClick={deleteAccount} style={{ background: C.redDim, border: `1px solid ${C.red}44`, color: C.red, borderRadius: 7, padding: '8px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: F }}>Delete account</button>
+              <button onClick={deleteAccount} disabled={deleting} style={{ background: C.redDim, border: `1px solid ${C.red}44`, color: C.red, borderRadius: 7, padding: '8px 14px', fontSize: 12, fontWeight: 600, cursor: deleting ? 'default' : 'pointer', fontFamily: F, opacity: deleting ? 0.6 : 1 }}>
+                {deleting ? 'Deleting…' : 'Delete account'}
+              </button>
             </div>
           </Card>
         )}
@@ -71,6 +108,8 @@ export default function Settings() {
             <Toggle label="I receive feedback" sub="Email" value={prefs.emailFeedback} onChange={v => setPrefs(p => ({ ...p, emailFeedback: v }))} />
             <div style={{ borderTop: `1px solid ${C.border}`, margin: '12px 0' }} />
             <Toggle label="SMS alerts" sub="Text for urgent notifications" value={prefs.smsAlerts} onChange={v => setPrefs(p => ({ ...p, smsAlerts: v }))} />
+            <PBtn onClick={save} style={{ marginTop: 14 }}>Save preferences</PBtn>
+            {saved && <span style={{ color: C.green, fontWeight: 600, fontSize: 13, marginLeft: 10 }}>✓ Saved</span>}
           </Card>
         )}
 
@@ -88,6 +127,7 @@ export default function Settings() {
             </div>
             <Toggle label="Appear in recruiter search" sub="Allow recruiters to find your profile" value={prefs.searchable} onChange={v => setPrefs(p => ({ ...p, searchable: v }))} />
             <PBtn onClick={save} style={{ marginTop: 12 }}>Save preferences</PBtn>
+            {saved && <span style={{ color: C.green, fontWeight: 600, fontSize: 13, marginLeft: 10 }}>✓ Saved</span>}
           </Card>
         )}
 
