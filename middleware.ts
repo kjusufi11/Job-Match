@@ -30,14 +30,14 @@ export async function middleware(request: NextRequest) {
 
   const path = request.nextUrl.pathname;
 
-  // getUser() validates the JWT and triggers a token refresh when needed.
-  // getSession() only reads the cookie and can be stale — don't use it in middleware.
+  // getSession() reads the cookie locally and refreshes the token when expired —
+  // no external network call on every request, unlike getUser().
   let user: { id: string } | null = null;
   try {
-    const { data } = await supabase.auth.getUser();
-    user = data.user;
+    const { data: { session } } = await supabase.auth.getSession();
+    user = session?.user ?? null;
   } catch {
-    // Network error or invalid token — treat as logged out, allow through
+    // Any failure — treat as logged out and allow the request through
   }
 
   const authRequired = ['/dashboard', '/profile', '/notifications', '/settings', '/recruiter', '/admin'];
