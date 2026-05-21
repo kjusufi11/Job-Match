@@ -243,6 +243,22 @@ export const TRAVEL_LEVELS = [
   "Heavy (50%+)",
 ];
 
+export const LANGUAGES = [
+  "Afrikaans","Arabic","Bengali","Bulgarian","Cantonese","Croatian","Czech","Danish","Dutch",
+  "English","Filipino","Finnish","French","German","Greek","Hebrew","Hindi","Hungarian",
+  "Indonesian","Italian","Japanese","Korean","Malay","Mandarin","Norwegian","Persian/Farsi",
+  "Polish","Portuguese","Romanian","Russian","Serbian","Slovak","Spanish","Swahili","Swedish",
+  "Tamil","Telugu","Thai","Turkish","Ukrainian","Urdu","Vietnamese",
+];
+
+export const LANGUAGE_PROFICIENCY = [
+  "Native / Bilingual",
+  "Full professional proficiency",
+  "Professional working proficiency",
+  "Limited working proficiency",
+  "Elementary",
+];
+
 export const AVAILABILITY_SEEKER = [
   "Immediately (within 2 weeks)",
   "Within 1 month",

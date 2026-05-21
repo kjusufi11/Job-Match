@@ -6,33 +6,51 @@ export type Profile = {
   name: string;
   email: string;
 
-  // ── Section 1: Basic Info ───────────────────────────────────
+  // ── S1: Basic Info & Online Presence ───────────────────────
   first_name?: string | null;
   last_name?: string | null;
   phone?: string | null;
   location?: string | null;
   zip?: string | null;
   work_auth?: string | null;
-  eeoc?: string[] | null;
+  eeoc?: string[] | null;           // legacy — kept for existing data
+  headline?: string | null;
+  linkedin?: string | null;
+  website?: string | null;
+  other_link?: string | null;
+  gender?: string | null;
+  race?: string | null;
+  veteran?: string | null;
+  disability?: string | null;
 
-  // ── Section 2: Education ────────────────────────────────────
+  // ── S2: Professional Summary ────────────────────────────────
+  summary?: string | null;
+  accomplishments?: string[] | null;
+
+  // ── S3: Education ───────────────────────────────────────────
   degrees?: Record<string, unknown>[] | null;
-  certs?: string | null;
+  certs?: string | null;            // legacy text field
+  certifications?: Record<string, unknown>[] | null;
+  test_scores?: Record<string, string> | null;
 
-  // ── Section 3: Work History ─────────────────────────────────
+  // ── S4: Work History ────────────────────────────────────────
   title?: string | null;
   jobs_history?: Record<string, unknown>[] | null;
   total_exp?: number | null;
   experience_level?: string | null;
-  industries?: string[] | null;
   emp_status?: string | null;
   gaps?: string | null;
+  volunteer?: Record<string, unknown>[] | null;
 
-  // ── Section 4: Skills ───────────────────────────────────────
+  // ── S5: Skills & Expertise ──────────────────────────────────
   skills?: string[] | null;
   seniority?: string | null;
+  industries?: string[] | null;
+  languages?: Record<string, string>[] | null;
+  projects?: Record<string, unknown>[] | null;
+  awards?: Record<string, string>[] | null;
 
-  // ── Section 5: Job Preferences ──────────────────────────────
+  // ── S6: Job Preferences ─────────────────────────────────────
   target_titles?: string[] | null;
   ideal_salary?: number | null;
   min_salary?: number | null;
@@ -49,7 +67,7 @@ export type Profile = {
   company_size?: string[] | null;
   target_industries?: string[] | null;
 
-  // ── Section 6: Work Style & Culture ────────────────────────
+  // ── S7: Work Style & Culture ────────────────────────────────
   target_culture?: string[] | null;
   feedback_pref?: string | null;
   work_style?: string | null;
@@ -59,17 +77,18 @@ export type Profile = {
   env_prefs?: string[] | null;
   motivators?: string[] | null;
 
-  // ── Section 7: Personality ──────────────────────────────────
+  // ── S8: Personality ─────────────────────────────────────────
   personality?: Record<string, number | string> | null;
   comm_style?: string | null;
   mistake_style?: string | null;
 
-  // ── Section 8: Career Goals ─────────────────────────────────
+  // ── S9: Career Goals ────────────────────────────────────────
   primary_goal?: string | null;
   five_year?: string | null;
   search_intensity?: string | null;
   other_interviews?: string | null;
   stay_reasons?: string[] | null;
+  referral_source?: string | null;
   bio?: string | null;
 
   // ── Recruiter company fields ────────────────────────────────

@@ -6,508 +6,711 @@ import { createClient } from '@/lib/supabase/client';
 import {
   INDUSTRIES, CULTURE_DESCRIPTORS, EMPLOYMENT_TYPES, MGMT_STYLES, TRAVEL_LEVELS,
   SKILL_SUGGESTIONS, UNIVERSITIES, TITLE_SUGGESTIONS, EDUCATION_LEVELS_SEEKER,
-  PERSONALITY_DIMS_SEEKER,
+  PERSONALITY_DIMS_SEEKER, LANGUAGES as LANG_LIST, LANGUAGE_PROFICIENCY,
 } from '@/lib/constants';
 
 const C = {
   bg:'#F0F4F7',white:'#FFFFFF',teal:'#1A8C8C',tealDim:'#1A8C8C12',tealBorder:'#1A8C8C35',
-  slate:'#1E2D3A',gray100:'#E3ECF1',gray200:'#C8D8E4',gray400:'#8FAABB',gray600:'#4E6475',
-  gray800:'#2B3D4D',border:'#D4E3EC',green:'#19A87A',greenDim:'#19A87A14',
-  amber:'#C9870C',amberDim:'#C9870C14',red:'#C0392B',redDim:'#C0392B14',
+  tealDark:'#116060',slate:'#1E2D3A',gray100:'#E3ECF1',gray200:'#C8D8E4',gray400:'#8FAABB',
+  gray600:'#4E6475',gray800:'#2B3D4D',border:'#D4E3EC',green:'#19A87A',greenDim:'#19A87A14',
+  amber:'#C9870C',amberDim:'#C9870C14',red:'#C0392B',redDim:'#C0392B14',purple:'#6B5EA8',
 };
 const F = "'Plus Jakarta Sans','Helvetica Neue',sans-serif";
 
-type Degree  = { level:string; field:string; university:string; gradYear:string; current:boolean };
-type WorkJob = { company:string; title:string; startDate:string; endDate:string; current:boolean; responsibilities:string; accomplishments:string };
+// ── Types ─────────────────────────────────────────────────────────────────────
+type Degree   = { level:string; field:string; university:string; gradYear:string; current:boolean; gpa:string; activities:string };
+type WorkJob  = { company:string; title:string; location:string; startMonth:string; startYear:string; endMonth:string; endYear:string; current:boolean; employmentType:string; description:string; accomplishments:string[]; reasonForLeaving:string };
+type Cert     = { name:string; issuer:string; date:string; expiry:string; credentialId:string };
+type Volunteer= { org:string; role:string; cause:string; startYear:string; endYear:string; current:boolean; description:string };
+type Project  = { name:string; description:string; url:string; startYear:string; endYear:string };
+type Award    = { name:string; issuer:string; year:string };
+type Language = { language:string; proficiency:string };
+
 type SurveyData = {
-  firstName:string; lastName:string; email:string; phone:string; location:string; zip:string; workAuth:string; eeoc:string[];
-  degrees:Degree[]; certs:string;
-  jobs:WorkJob[]; gaps:string; empStatus:string;
-  skills:string[]; seniority:string; industries:string[];
+  firstName:string; lastName:string; email:string; phone:string; location:string; zip:string;
+  headline:string; linkedin:string; website:string; otherLink:string; workAuth:string;
+  gender:string; race:string; veteran:string; disability:string;
+  summary:string; accomplishments:string[];
+  degrees:Degree[]; certifications:Cert[]; testScores:Record<string,string>;
+  jobs:WorkJob[]; volunteer:Volunteer[]; gaps:string; empStatus:string;
+  skills:string[]; seniority:string; languages:Language[]; projects:Project[]; awards:Award[];
   targetTitles:string[]; idealSalary:number; minSalary:number;
   remotePreference:string; maxCommute:number; employmentType:string[];
   availability:string; relocation:string; relocationRegions:string; travel:string;
   companySize:string[]; targetIndustries:string[];
-  targetCulture:string[]; mgmtStyle:string; feedbackStyle:string; motivators:string[];
-  personality:Record<string,number>;
-  primaryGoal:string; fiveYear:string; searchIntensity:string; stayReasons:string[]; personalNote:string;
+  targetCulture:string[]; mgmtStyle:string; feedbackStyle:string; motivators:string[]; industries:string[];
+  personality:Record<string,number>; commStyle:string; mistakeStyle:string;
+  primaryGoal:string; fiveYear:string; searchIntensity:string; stayReasons:string[]; referralSource:string; personalNote:string;
 };
 type SetData  = React.Dispatch<React.SetStateAction<SurveyData>>;
 type SecProps = { d:SurveyData; set:SetData };
 
-const BLANK_DEGREE: Degree  = { level:'', field:'', university:'', gradYear:'', current:false };
-const BLANK_JOB:   WorkJob  = { company:'', title:'', startDate:'', endDate:'', current:false, responsibilities:'', accomplishments:'' };
-const INIT: SurveyData = {
-  firstName:'',lastName:'',email:'',phone:'',location:'',zip:'',workAuth:'',eeoc:[],
-  degrees:[{...BLANK_DEGREE}],certs:'',
-  jobs:[{...BLANK_JOB}],gaps:'',empStatus:'',
-  skills:[],seniority:'',industries:[],
-  targetTitles:[],idealSalary:100,minSalary:80,
+const BD:Degree   = { level:'',field:'',university:'',gradYear:'',current:false,gpa:'',activities:'' };
+const BJ:WorkJob  = { company:'',title:'',location:'',startMonth:'',startYear:'',endMonth:'',endYear:'',current:false,employmentType:'',description:'',accomplishments:['','',''],reasonForLeaving:'' };
+const BC:Cert     = { name:'',issuer:'',date:'',expiry:'',credentialId:'' };
+const BV:Volunteer= { org:'',role:'',cause:'',startYear:'',endYear:'',current:false,description:'' };
+const BP:Project  = { name:'',description:'',url:'',startYear:'',endYear:'' };
+const BAw:Award   = { name:'',issuer:'',year:'' };
+const BL:Language = { language:'',proficiency:'' };
+
+const INIT:SurveyData = {
+  firstName:'',lastName:'',email:'',phone:'',location:'',zip:'',
+  headline:'',linkedin:'',website:'',otherLink:'',workAuth:'',
+  gender:'',race:'',veteran:'',disability:'',
+  summary:'',accomplishments:['','',''],
+  degrees:[{...BD}],certifications:[],testScores:{},
+  jobs:[{...BJ}],volunteer:[],gaps:'',empStatus:'',
+  skills:[],seniority:'',languages:[{...BL}],projects:[],awards:[],
+  targetTitles:[],idealSalary:100,minSalary:75,
   remotePreference:'',maxCommute:30,employmentType:[],
   availability:'',relocation:'',relocationRegions:'',travel:'',
   companySize:[],targetIndustries:[],
-  targetCulture:[],mgmtStyle:'',feedbackStyle:'',motivators:[],
-  personality:{},
-  primaryGoal:'',fiveYear:'',searchIntensity:'',stayReasons:[],personalNote:'',
+  targetCulture:[],mgmtStyle:'',feedbackStyle:'',motivators:[],industries:[],
+  personality:{},commStyle:'',mistakeStyle:'',
+  primaryGoal:'',fiveYear:'',searchIntensity:'',stayReasons:[],referralSource:'',personalNote:'',
 };
 
-// ── UI primitives ─────────────────────────────────────────────────────────
-function SLabel({c}:{c:React.ReactNode}){return<div style={{fontSize:11,fontWeight:700,color:C.teal,textTransform:'uppercase',letterSpacing:1.5,marginBottom:6,fontFamily:F}}>{c}</div>;}
-function QLabel({c,req}:{c:React.ReactNode;req?:boolean}){return<div style={{fontSize:15,fontWeight:600,color:C.slate,marginBottom:8,fontFamily:F,lineHeight:1.4}}>{c}{req&&<span style={{color:C.red,marginLeft:3}}>*</span>}</div>;}
-function Sub({c}:{c:React.ReactNode}){return<div style={{fontSize:13,color:C.gray600,marginBottom:12,fontFamily:F,lineHeight:1.55}}>{c}</div>;}
-function HR(){return<div style={{borderTop:`1px solid ${C.border}`,margin:'24px 0'}}/>;}
-
-function FInput({value,onChange,placeholder,type='text',disabled,style={}}:{value:string;onChange:(v:string)=>void;placeholder?:string;type?:string;disabled?:boolean;style?:React.CSSProperties}){
-  return<input type={type} value={value} disabled={disabled} onChange={e=>onChange(e.target.value)} placeholder={placeholder} style={{width:'100%',padding:'10px 13px',borderRadius:8,background:disabled?C.gray100:C.bg,border:`1.5px solid ${C.border}`,color:C.slate,fontSize:14,outline:'none',boxSizing:'border-box' as const,fontFamily:F,...style}}/>;
+// ── UI Primitives ─────────────────────────────────────────────────────────────
+function Card({children,style={}}:{children:React.ReactNode;style?:React.CSSProperties}){
+  return<div style={{background:C.white,borderRadius:14,border:`1px solid ${C.border}`,padding:'26px 24px',...style}}>{children}</div>;
 }
-function FTA({value,onChange,placeholder,rows=3}:{value:string;onChange:(v:string)=>void;placeholder?:string;rows?:number}){
-  return<textarea value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} rows={rows} style={{width:'100%',padding:'10px 13px',borderRadius:8,background:C.bg,border:`1.5px solid ${C.border}`,color:C.slate,fontSize:14,outline:'none',boxSizing:'border-box' as const,fontFamily:F,resize:'vertical',lineHeight:1.6}}/>;
+function FL({children,required,optional,hint}:{children:React.ReactNode;required?:boolean;optional?:boolean;hint?:string}){
+  return<div style={{marginBottom:7}}>
+    <div style={{fontSize:14,fontWeight:600,color:C.slate,fontFamily:F,display:'flex',alignItems:'center',gap:6}}>
+      {children}
+      {required&&<span style={{color:C.red,fontSize:13}}>*</span>}
+      {optional&&<span style={{fontSize:11,fontWeight:500,color:C.gray400,background:C.gray100,padding:'1px 7px',borderRadius:8}}>optional</span>}
+    </div>
+    {hint&&<div style={{fontSize:12,color:C.gray400,marginTop:2,fontFamily:F}}>{hint}</div>}
+  </div>;
 }
-function FSel({value,onChange,options,placeholder}:{value:string;onChange:(v:string)=>void;options:string[];placeholder?:string}){
-  return<select value={value} onChange={e=>onChange(e.target.value)} style={{width:'100%',padding:'10px 13px',borderRadius:8,background:C.bg,border:`1.5px solid ${C.border}`,color:value?C.slate:C.gray400,fontSize:14,outline:'none',boxSizing:'border-box' as const,fontFamily:F,cursor:'pointer'}}>
+function ST({section,title,sub}:{section:string;title:string;sub?:string}){
+  return<div style={{marginBottom:20}}>
+    <div style={{fontSize:11,fontWeight:700,color:C.teal,textTransform:'uppercase',letterSpacing:1.4,marginBottom:4,fontFamily:F}}>{section}</div>
+    <h2 style={{fontSize:22,fontWeight:800,color:C.slate,margin:'0 0 6px',letterSpacing:-0.5,fontFamily:F,lineHeight:1.2}}>{title}</h2>
+    {sub&&<p style={{fontSize:14,color:C.gray600,margin:0,fontFamily:F,lineHeight:1.6}}>{sub}</p>}
+  </div>;
+}
+function Div({label}:{label?:string}){
+  if(label)return<div style={{display:'flex',alignItems:'center',gap:10,margin:'22px 0'}}><div style={{flex:1,height:1,background:C.border}}/><span style={{fontSize:11,color:C.gray400,fontWeight:600,whiteSpace:'nowrap',fontFamily:F}}>{label}</span><div style={{flex:1,height:1,background:C.border}}/></div>;
+  return<div style={{borderTop:`1px solid ${C.border}`,margin:'22px 0'}}/>;
+}
+function TI({value,onChange,placeholder,type='text',disabled=false}:{value:string;onChange:(v:string)=>void;placeholder?:string;type?:string;disabled?:boolean}){
+  return<input type={type} value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} disabled={disabled}
+    style={{width:'100%',padding:'11px 14px',borderRadius:8,background:disabled?C.gray100:C.bg,border:`1.5px solid ${C.border}`,color:C.slate,fontSize:14,outline:'none',boxSizing:'border-box' as const,fontFamily:F,transition:'border .15s'}}
+    onFocus={e=>(e.target.style.border=`1.5px solid ${C.teal}`)}
+    onBlur={e=>(e.target.style.border=`1.5px solid ${C.border}`)}/>;
+}
+function TA({value,onChange,placeholder,rows=3,hint}:{value:string;onChange:(v:string)=>void;placeholder?:string;rows?:number;hint?:string}){
+  return<div>
+    <textarea value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} rows={rows}
+      style={{width:'100%',padding:'11px 14px',borderRadius:8,background:C.bg,border:`1.5px solid ${C.border}`,color:C.slate,fontSize:14,outline:'none',boxSizing:'border-box' as const,fontFamily:F,resize:'vertical',lineHeight:1.6,transition:'border .15s'}}
+      onFocus={e=>(e.target.style.border=`1.5px solid ${C.teal}`)}
+      onBlur={e=>(e.target.style.border=`1.5px solid ${C.border}`)}/>
+    {hint&&<div style={{fontSize:11,color:C.gray400,marginTop:3,fontFamily:F}}>{hint}</div>}
+  </div>;
+}
+function Sel({value,onChange,options,placeholder,disabled=false}:{value:string;onChange:(v:string)=>void;options:string[];placeholder?:string;disabled?:boolean}){
+  return<select value={value} onChange={e=>onChange(e.target.value)} disabled={disabled}
+    style={{width:'100%',padding:'11px 14px',borderRadius:8,background:disabled?C.gray100:C.bg,border:`1.5px solid ${C.border}`,color:value?C.slate:C.gray400,fontSize:14,outline:'none',boxSizing:'border-box' as const,fontFamily:F,cursor:disabled?'default':'pointer'}}>
     <option value="">{placeholder||'Select...'}</option>
     {options.map(o=><option key={o} value={o}>{o}</option>)}
   </select>;
 }
-function Radio({options,value,onChange}:{options:string[];value:string;onChange:(v:string)=>void}){
+function RG({options,value,onChange}:{options:string[];value:string;onChange:(v:string)=>void}){
   return<div style={{display:'flex',flexDirection:'column',gap:8}}>
-    {options.map(o=><button key={o} onClick={()=>onChange(o)} style={{background:value===o?C.tealDim:C.bg,border:`1.5px solid ${value===o?C.teal:C.border}`,borderRadius:9,padding:'11px 14px',color:value===o?C.teal:C.gray600,fontWeight:value===o?600:400,fontSize:14,cursor:'pointer',textAlign:'left',fontFamily:F,transition:'all .15s',display:'flex',alignItems:'center',gap:10}}>
-      <span style={{width:16,height:16,minWidth:16,borderRadius:'50%',border:`2px solid ${value===o?C.teal:C.gray200}`,background:value===o?C.teal:'transparent',display:'inline-block',transition:'all .15s'}}/>
-      {o}
-    </button>)}
+    {options.map(o=><label key={o} onClick={()=>onChange(o)} style={{display:'flex',alignItems:'center',gap:10,cursor:'pointer',padding:'10px 14px',borderRadius:9,background:value===o?C.tealDim:C.bg,border:`1.5px solid ${value===o?C.teal:C.border}`,transition:'all .15s'}}>
+      <div style={{width:18,height:18,borderRadius:'50%',border:`2px solid ${value===o?C.teal:C.gray200}`,background:value===o?C.teal:'none',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,transition:'all .15s'}}>
+        {value===o&&<div style={{width:7,height:7,borderRadius:'50%',background:C.white}}/>}
+      </div>
+      <span style={{fontSize:14,color:value===o?C.teal:C.slate,fontWeight:value===o?600:400,fontFamily:F}}>{o}</span>
+    </label>)}
   </div>;
 }
-function Pills({options,values,onChange,max}:{options:string[];values:string[];onChange:(v:string[])=>void;max?:number}){
+function CG({options,values,onChange,max,columns=1}:{options:string[];values:string[];onChange:(v:string[])=>void;max?:number;columns?:number}){
   function toggle(v:string){if(values.includes(v))onChange(values.filter(x=>x!==v));else if(!max||values.length<max)onChange([...values,v]);}
-  return<div style={{display:'flex',flexWrap:'wrap',gap:8}}>
-    {options.map(o=><button key={o} onClick={()=>toggle(o)} style={{padding:'7px 14px',borderRadius:20,background:values.includes(o)?C.tealDim:C.bg,border:`1.5px solid ${values.includes(o)?C.teal:C.border}`,color:values.includes(o)?C.teal:C.gray600,fontWeight:values.includes(o)?700:400,fontSize:13,cursor:'pointer',fontFamily:F,transition:'all .15s'}}>{o}</button>)}
+  return<div style={{display:'grid',gridTemplateColumns:`repeat(${columns},1fr)`,gap:8}}>
+    {options.map(o=><label key={o} onClick={()=>toggle(o)} style={{display:'flex',alignItems:'center',gap:9,cursor:'pointer',padding:'10px 13px',borderRadius:9,background:values.includes(o)?C.tealDim:C.bg,border:`1.5px solid ${values.includes(o)?C.teal:C.border}`,transition:'all .15s'}}>
+      <div style={{width:17,height:17,borderRadius:4,border:`2px solid ${values.includes(o)?C.teal:C.gray200}`,background:values.includes(o)?C.teal:'none',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+        {values.includes(o)&&<span style={{color:C.white,fontSize:10,fontWeight:800,lineHeight:1}}>✓</span>}
+      </div>
+      <span style={{fontSize:13,color:values.includes(o)?C.teal:C.slate,fontWeight:values.includes(o)?600:400,fontFamily:F,lineHeight:1.3}}>{o}</span>
+    </label>)}
   </div>;
 }
-
-function MultiDropdown({options,values,onChange,placeholder}:{options:string[];values:string[];onChange:(v:string[])=>void;placeholder?:string}){
+function MD({options,values,onChange,placeholder,max}:{options:string[];values:string[];onChange:(v:string[])=>void;placeholder?:string;max?:number}){
   const [open,setOpen]=useState(false);
   const [search,setSearch]=useState('');
   const ref=useRef<HTMLDivElement>(null);
-  const filtered=options.filter(o=>o.toLowerCase().includes(search.toLowerCase()));
   useEffect(()=>{
     function h(e:MouseEvent){if(ref.current&&!ref.current.contains(e.target as Node))setOpen(false);}
     document.addEventListener('mousedown',h);return()=>document.removeEventListener('mousedown',h);
   },[]);
-  function toggle(o:string){if(values.includes(o))onChange(values.filter(x=>x!==o));else onChange([...values,o]);}
+  const filtered=options.filter(o=>o.toLowerCase().includes(search.toLowerCase()));
+  function toggle(o:string){if(values.includes(o))onChange(values.filter(x=>x!==o));else if(!max||values.length<max)onChange([...values,o]);}
   return<div ref={ref} style={{position:'relative'}}>
-    <div onClick={()=>setOpen(o=>!o)} style={{minHeight:44,padding:'8px 13px',borderRadius:8,background:C.bg,border:`1.5px solid ${open?C.teal:C.border}`,cursor:'pointer',display:'flex',flexWrap:'wrap',gap:5,alignItems:'center',transition:'border-color .15s'}}>
+    <div onClick={()=>setOpen(o=>!o)} style={{minHeight:44,padding:'8px 12px',borderRadius:8,background:C.bg,border:`1.5px solid ${open?C.teal:C.border}`,cursor:'pointer',display:'flex',flexWrap:'wrap',gap:5,alignItems:'center',transition:'border .15s'}}>
       {values.length===0&&<span style={{color:C.gray400,fontSize:14,fontFamily:F}}>{placeholder}</span>}
-      {values.map(v=><span key={v} style={{background:C.tealDim,border:`1px solid ${C.tealBorder}`,color:C.teal,borderRadius:12,padding:'2px 10px',fontSize:12,fontWeight:600,fontFamily:F,display:'flex',alignItems:'center',gap:4}}>{v}<span onClick={e=>{e.stopPropagation();toggle(v);}} style={{cursor:'pointer',fontWeight:800,fontSize:14,lineHeight:1}}>×</span></span>)}
-      <span style={{marginLeft:'auto',color:C.gray400,fontSize:11}}>{open?'▲':'▼'}</span>
+      {values.map(v=><span key={v} style={{background:C.tealDim,border:`1px solid ${C.tealBorder}`,color:C.teal,borderRadius:12,padding:'3px 10px',fontSize:12,fontWeight:600,fontFamily:F,display:'flex',alignItems:'center',gap:4}}>
+        {v}<span onClick={e=>{e.stopPropagation();toggle(v);}} style={{cursor:'pointer',fontWeight:700,fontSize:14,lineHeight:1}}>×</span>
+      </span>)}
+      <span style={{marginLeft:'auto',color:C.gray400,fontSize:11,flexShrink:0}}>{open?'▲':'▼'}</span>
     </div>
-    {open&&<div style={{position:'absolute',top:'100%',left:0,right:0,background:C.white,border:`1.5px solid ${C.teal}`,borderRadius:8,marginTop:4,zIndex:60,boxShadow:'0 4px 24px rgba(0,0,0,.1)',maxHeight:260,display:'flex',flexDirection:'column'}}>
-      <div style={{padding:'8px 10px',borderBottom:`1px solid ${C.border}`}}><input autoFocus value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search..." style={{width:'100%',padding:'7px 10px',borderRadius:6,background:C.bg,border:`1px solid ${C.border}`,color:C.slate,fontSize:13,outline:'none',boxSizing:'border-box' as const,fontFamily:F}}/></div>
+    {open&&<div style={{position:'absolute',top:'calc(100% + 4px)',left:0,right:0,background:C.white,border:`1.5px solid ${C.teal}`,borderRadius:10,zIndex:100,boxShadow:'0 8px 24px rgba(0,0,0,.12)',maxHeight:260,display:'flex',flexDirection:'column'}}>
+      <div style={{padding:'8px 10px',borderBottom:`1px solid ${C.border}`}}>
+        <input autoFocus value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search..."
+          style={{width:'100%',padding:'7px 11px',borderRadius:7,background:C.bg,border:`1px solid ${C.border}`,color:C.slate,fontSize:13,outline:'none',boxSizing:'border-box' as const,fontFamily:F}}/>
+      </div>
       <div style={{overflowY:'auto',flex:1}}>
-        {filtered.map(o=><div key={o} onClick={()=>toggle(o)} style={{padding:'9px 14px',cursor:'pointer',display:'flex',alignItems:'center',gap:9,background:values.includes(o)?C.tealDim:'transparent'}}>
-          <div style={{width:16,height:16,borderRadius:4,border:`1.5px solid ${values.includes(o)?C.teal:C.gray200}`,background:values.includes(o)?C.teal:'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>{values.includes(o)&&<span style={{color:C.white,fontSize:9,fontWeight:800}}>✓</span>}</div>
+        {filtered.map(o=><div key={o} onClick={()=>toggle(o)} style={{padding:'10px 14px',cursor:'pointer',display:'flex',alignItems:'center',gap:10,background:values.includes(o)?C.tealDim:'none',transition:'background .1s'}}>
+          <div style={{width:17,height:17,borderRadius:4,border:`2px solid ${values.includes(o)?C.teal:C.gray200}`,background:values.includes(o)?C.teal:'none',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+            {values.includes(o)&&<span style={{color:C.white,fontSize:10,fontWeight:800}}>✓</span>}
+          </div>
           <span style={{fontSize:13,color:values.includes(o)?C.teal:C.slate,fontWeight:values.includes(o)?600:400,fontFamily:F}}>{o}</span>
         </div>)}
-        {filtered.length===0&&<div style={{padding:'16px',color:C.gray400,fontSize:13,textAlign:'center',fontFamily:F}}>No results</div>}
+        {filtered.length===0&&<div style={{padding:'14px',color:C.gray400,fontSize:13,textAlign:'center',fontFamily:F}}>No results</div>}
       </div>
+      {max&&<div style={{padding:'8px 14px',borderTop:`1px solid ${C.border}`,fontSize:11,color:C.gray400,fontFamily:F}}>{values.length}/{max} selected</div>}
     </div>}
   </div>;
 }
-
-function TagInput({values,onChange,suggestions,placeholder,max}:{values:string[];onChange:(v:string[])=>void;suggestions:string[];placeholder?:string;max?:number}){
+function TagInput({values,onChange,suggestions=[],placeholder,max}:{values:string[];onChange:(v:string[])=>void;suggestions?:string[];placeholder?:string;max?:number}){
   const [input,setInput]=useState('');
   const [showSug,setShowSug]=useState(false);
-  const containerRef=useRef<HTMLDivElement>(null);
+  const [focused,setFocused]=useState(false);
+  const ref=useRef<HTMLDivElement>(null);
   const inputRef=useRef<HTMLInputElement>(null);
-  const filtered=input.length>1?suggestions.filter(s=>s.toLowerCase().includes(input.toLowerCase())&&!values.includes(s)).slice(0,8):[];
   useEffect(()=>{
-    function h(e:MouseEvent){if(containerRef.current&&!containerRef.current.contains(e.target as Node))setShowSug(false);}
+    function h(e:MouseEvent){if(ref.current&&!ref.current.contains(e.target as Node)){setShowSug(false);setFocused(false);}}
     document.addEventListener('mousedown',h);return()=>document.removeEventListener('mousedown',h);
   },[]);
-  function add(val:string){const v=val.trim();if(!v||values.includes(v)||(max&&values.length>=max))return;onChange([...values,v]);setInput('');setShowSug(false);}
+  const filtered=input.length>0?suggestions.filter(s=>s.toLowerCase().includes(input.toLowerCase())&&!values.includes(s)).slice(0,8):[];
+  function add(val:string){const v=val.trim();if(!v||values.includes(v)||(max&&values.length>=max))return;onChange([...values,v]);setInput('');}
   function remove(v:string){onChange(values.filter(x=>x!==v));}
-  return<div ref={containerRef} style={{position:'relative'}}>
-    <div style={{minHeight:46,padding:'7px 10px',borderRadius:8,background:C.bg,border:`1.5px solid ${showSug?C.teal:C.border}`,display:'flex',flexWrap:'wrap',gap:6,alignItems:'center',cursor:'text',transition:'border-color .15s'}} onClick={()=>inputRef.current?.focus()}>
-      {values.map(v=><span key={v} style={{background:C.tealDim,border:`1px solid ${C.tealBorder}`,color:C.teal,borderRadius:12,padding:'4px 11px',fontSize:12,fontWeight:600,fontFamily:F,display:'flex',alignItems:'center',gap:5,lineHeight:1}}>
-        {v}<span onClick={()=>remove(v)} style={{cursor:'pointer',fontWeight:800,fontSize:13,lineHeight:1,opacity:.7}}>×</span>
+  return<div ref={ref} style={{position:'relative'}}>
+    <div style={{minHeight:46,padding:'7px 10px',borderRadius:8,background:C.bg,border:`1.5px solid ${focused?C.teal:C.border}`,display:'flex',flexWrap:'wrap',gap:5,alignItems:'center',cursor:'text',transition:'border .15s'}}
+      onClick={()=>inputRef.current?.focus()}>
+      {values.map(v=><span key={v} style={{background:C.tealDim,border:`1px solid ${C.tealBorder}`,color:C.teal,borderRadius:12,padding:'3px 10px',fontSize:12,fontWeight:600,fontFamily:F,display:'flex',alignItems:'center',gap:4}}>
+        {v}<span onClick={()=>remove(v)} style={{cursor:'pointer',fontWeight:700,fontSize:14,lineHeight:1}}>×</span>
       </span>)}
-      <input ref={inputRef} value={input} onChange={e=>{setInput(e.target.value);setShowSug(true);}} onKeyDown={e=>{if(e.key==='Enter'||e.key===','){e.preventDefault();add(input);}if(e.key==='Backspace'&&!input&&values.length)remove(values[values.length-1]);}} onFocus={()=>setShowSug(true)} placeholder={values.length===0?placeholder:''} style={{border:'none',outline:'none',background:'none',fontSize:13,color:C.slate,fontFamily:F,minWidth:140,flex:1,padding:'2px 0'}}/>
+      <input ref={inputRef} value={input}
+        onChange={e=>{setInput(e.target.value);setShowSug(true);}}
+        onFocus={()=>{setFocused(true);setShowSug(true);}}
+        onKeyDown={e=>{
+          if((e.key==='Enter'||e.key===',')&&input){e.preventDefault();add(input);}
+          if(e.key==='Backspace'&&!input&&values.length)remove(values[values.length-1]);
+        }}
+        placeholder={values.length===0?placeholder:''}
+        style={{border:'none',outline:'none',background:'none',fontSize:13,color:C.slate,fontFamily:F,minWidth:140,flex:1,padding:'2px 0'}}/>
     </div>
-    {showSug&&filtered.length>0&&<div style={{position:'absolute',top:'100%',left:0,right:0,background:C.white,border:`1.5px solid ${C.teal}`,borderRadius:8,marginTop:3,zIndex:60,boxShadow:'0 4px 20px rgba(0,0,0,.1)',maxHeight:220,overflowY:'auto'}}>
-      {filtered.map(s=><div key={s} onClick={()=>add(s)} style={{padding:'10px 14px',cursor:'pointer',fontSize:13,color:C.slate,fontFamily:F}}
-        onMouseEnter={e=>(e.currentTarget.style.background=C.tealDim)} onMouseLeave={e=>(e.currentTarget.style.background='transparent')}>{s}</div>)}
-      {input.length>1&&!suggestions.find(s=>s.toLowerCase()===input.toLowerCase())&&
-        <div onClick={()=>add(input)} style={{padding:'10px 14px',cursor:'pointer',fontSize:13,color:C.teal,fontWeight:600,fontFamily:F,borderTop:`1px solid ${C.border}`}}>+ Add "{input}"</div>}
+    {showSug&&(filtered.length>0||(input.length>0&&!suggestions.includes(input)))&&<div style={{position:'absolute',top:'calc(100% + 4px)',left:0,right:0,background:C.white,border:`1.5px solid ${C.teal}`,borderRadius:10,zIndex:100,boxShadow:'0 8px 24px rgba(0,0,0,.12)',overflow:'hidden'}}>
+      {filtered.map(s=><div key={s} onClick={()=>add(s)} style={{padding:'10px 14px',cursor:'pointer',fontSize:13,color:C.slate,fontFamily:F}} onMouseEnter={e=>(e.currentTarget.style.background=C.tealDim)} onMouseLeave={e=>(e.currentTarget.style.background='none')}>{s}</div>)}
+      {input.length>0&&!values.includes(input)&&<div onClick={()=>add(input)} style={{padding:'10px 14px',cursor:'pointer',fontSize:13,color:C.teal,fontWeight:600,fontFamily:F,borderTop:filtered.length?`1px solid ${C.border}`:'none',background:C.tealDim}}>+ Add "{input}"</div>}
     </div>}
+    {max&&<div style={{fontSize:11,color:values.length>=max?C.amber:C.gray400,marginTop:4,fontFamily:F}}>{values.length}/{max} added</div>}
   </div>;
 }
-
-function ACInput({value,onChange,suggestions,placeholder}:{value:string;onChange:(v:string)=>void;suggestions:string[];placeholder?:string}){
-  const [input,setInput]=useState(value||'');
+function AI({value,onChange,suggestions,placeholder}:{value:string;onChange:(v:string)=>void;suggestions:string[];placeholder?:string}){
   const [show,setShow]=useState(false);
   const ref=useRef<HTMLDivElement>(null);
-  const filtered=input.length>1?suggestions.filter(s=>s.toLowerCase().includes(input.toLowerCase())).slice(0,8):[];
   useEffect(()=>{
     function h(e:MouseEvent){if(ref.current&&!ref.current.contains(e.target as Node))setShow(false);}
     document.addEventListener('mousedown',h);return()=>document.removeEventListener('mousedown',h);
   },[]);
-  function select(v:string){setInput(v);onChange(v);setShow(false);}
+  const filtered=value.length>1?suggestions.filter(s=>s.toLowerCase().includes(value.toLowerCase())).slice(0,8):[];
   return<div ref={ref} style={{position:'relative'}}>
-    <FInput value={input} onChange={v=>{setInput(v);onChange(v);setShow(true);}} placeholder={placeholder}/>
-    {show&&filtered.length>0&&<div style={{position:'absolute',top:'100%',left:0,right:0,background:C.white,border:`1.5px solid ${C.teal}`,borderRadius:8,marginTop:3,zIndex:60,boxShadow:'0 4px 20px rgba(0,0,0,.1)',maxHeight:200,overflowY:'auto'}}>
-      {filtered.map(s=><div key={s} onClick={()=>select(s)} style={{padding:'10px 14px',cursor:'pointer',fontSize:13,color:C.slate,fontFamily:F}}
-        onMouseEnter={e=>(e.currentTarget.style.background=C.tealDim)} onMouseLeave={e=>(e.currentTarget.style.background='transparent')}>{s}</div>)}
+    <TI value={value} onChange={v=>{onChange(v);setShow(true);}} placeholder={placeholder}/>
+    {show&&filtered.length>0&&<div style={{position:'absolute',top:'calc(100% + 4px)',left:0,right:0,background:C.white,border:`1.5px solid ${C.teal}`,borderRadius:10,zIndex:100,boxShadow:'0 8px 24px rgba(0,0,0,.12)',maxHeight:200,overflowY:'auto'}}>
+      {filtered.map(s=><div key={s} onClick={()=>{onChange(s);setShow(false);}} style={{padding:'10px 14px',cursor:'pointer',fontSize:13,color:C.slate,fontFamily:F}} onMouseEnter={e=>(e.currentTarget.style.background=C.tealDim)} onMouseLeave={e=>(e.currentTarget.style.background='none')}>{s}</div>)}
     </div>}
   </div>;
 }
-
-function ScaleQ({question,low,high,value,onChange}:{question:string;low:string;high:string;value:number|undefined;onChange:(v:number)=>void}){
-  return<div style={{marginBottom:16,padding:'16px',background:C.bg,borderRadius:10,border:`1px solid ${C.border}`}}>
-    <div style={{fontSize:14,fontWeight:600,color:C.slate,marginBottom:12,fontFamily:F,lineHeight:1.45}}>{question}</div>
-    <div style={{display:'flex',alignItems:'center',gap:8}}>
-      <span style={{fontSize:11,color:C.gray600,width:100,flexShrink:0,lineHeight:1.3,textAlign:'right'}}>{low}</span>
-      <div style={{display:'flex',gap:6,flex:1}}>
-        {[1,2,3,4,5].map(n=><button key={n} onClick={()=>onChange(n)} style={{flex:1,height:38,borderRadius:8,border:`1.5px solid ${value===n?C.teal:C.border}`,background:value===n?C.teal:C.white,color:value===n?C.white:C.gray600,fontWeight:700,fontSize:13,cursor:'pointer',fontFamily:F,transition:'all .15s'}}>{n}</button>)}
-      </div>
-      <span style={{fontSize:11,color:C.gray600,width:100,flexShrink:0,textAlign:'left',lineHeight:1.3}}>{high}</span>
-    </div>
-  </div>;
-}
-
-function Slider({value,onChange,min,max,step=1,format}:{value:number;onChange:(v:number)=>void;min:number;max:number;step?:number;format:(v:number)=>string}){
+function Slider({value,onChange,min,max,step=1,format,label}:{value:number;onChange:(v:number)=>void;min:number;max:number;step?:number;format:(v:number)=>string;label?:string}){
   return<div>
-    <div style={{textAlign:'center',marginBottom:6}}><span style={{fontSize:22,fontWeight:800,color:C.teal,fontFamily:F}}>{format(value)}</span></div>
-    <input type="range" min={min} max={max} step={step} value={value} onChange={e=>onChange(+e.target.value)} style={{width:'100%',accentColor:C.teal,cursor:'pointer'}}/>
-    <div style={{display:'flex',justifyContent:'space-between',marginTop:3}}>
-      <span style={{fontSize:11,color:C.gray400,fontFamily:F}}>{format(min)}</span>
-      <span style={{fontSize:11,color:C.gray400,fontFamily:F}}>{format(max)}</span>
+    {label&&<div style={{fontSize:13,color:C.gray600,marginBottom:6,fontFamily:F}}>{label}</div>}
+    <input type="range" min={min} max={max} step={step} value={value} onChange={e=>onChange(+e.target.value)} style={{width:'100%',accentColor:C.teal,height:5}}/>
+    <div style={{display:'flex',justifyContent:'space-between',marginTop:4}}>
+      <span style={{fontSize:12,color:C.gray400,fontFamily:F}}>{format(min)}</span>
+      <span style={{fontSize:15,fontWeight:800,color:C.teal,fontFamily:F}}>{format(value)}</span>
+      <span style={{fontSize:12,color:C.gray400,fontFamily:F}}>{format(max)}</span>
     </div>
   </div>;
 }
-
-function Progress({step,total}:{step:number;total:number}){
-  const pct=Math.round((step/total)*100);
-  return<div style={{marginBottom:20}}>
-    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
-      <span style={{fontSize:12,color:C.gray600,fontFamily:F}}>{step<total?`Section ${step+1} of ${total}`:' Review & submit'}</span>
-      <span style={{fontSize:12,fontWeight:700,color:C.teal,fontFamily:F}}>{pct}%</span>
-    </div>
-    <div style={{height:5,background:C.gray100,borderRadius:4,overflow:'hidden'}}>
-      <div style={{width:`${pct}%`,height:'100%',borderRadius:4,background:`linear-gradient(90deg,${C.teal},#2AADAD)`,transition:'width .4s cubic-bezier(.4,0,.2,1)'}}/>
-    </div>
-    <div style={{display:'flex',gap:3,marginTop:6}}>
-      {Array.from({length:total},(_,i)=>(
-        <div key={i} style={{flex:1,height:3,borderRadius:3,background:i<step?C.teal:i===step?`${C.teal}55`:C.gray100,transition:'background .3s'}}/>
-      ))}
+function ScaleQ({question,low,high,value,onChange}:{question:string;low:string;high:string;value:number|undefined;onChange:(v:number)=>void}){
+  return<div style={{marginBottom:22}}>
+    <div style={{fontSize:14,color:C.slate,marginBottom:10,fontFamily:F,lineHeight:1.5,fontWeight:500}}>{question}</div>
+    <div style={{display:'flex',alignItems:'center',gap:10}}>
+      <span style={{fontSize:12,color:C.gray600,width:120,flexShrink:0,lineHeight:1.4,fontFamily:F}}>{low}</span>
+      <div style={{display:'flex',gap:7,flex:1}}>
+        {[1,2,3,4,5].map(n=><button key={n} onClick={()=>onChange(n)} style={{flex:1,height:38,borderRadius:8,border:`1.5px solid ${value===n?C.teal:C.border}`,background:value===n?C.teal:C.bg,color:value===n?C.white:C.gray600,fontWeight:700,fontSize:14,cursor:'pointer',fontFamily:F,transition:'all .15s'}}>{n}</button>)}
+      </div>
+      <span style={{fontSize:12,color:C.gray600,width:120,flexShrink:0,textAlign:'right',lineHeight:1.4,fontFamily:F}}>{high}</span>
     </div>
   </div>;
 }
-
-function Block({children,onRemove,canRemove,label}:{children:React.ReactNode;onRemove:()=>void;canRemove:boolean;label?:string}){
-  return<div style={{background:C.bg,borderRadius:10,border:`1px solid ${C.border}`,padding:'18px 18px 14px',marginBottom:12,position:'relative'}}>
-    {label&&<div style={{fontWeight:700,fontSize:11,color:C.teal,marginBottom:12,fontFamily:F,textTransform:'uppercase',letterSpacing:0.8}}>{label}</div>}
-    {canRemove&&<button onClick={onRemove} style={{position:'absolute',top:14,right:14,background:C.redDim,border:`1px solid ${C.red}33`,borderRadius:6,color:C.red,fontSize:11,cursor:'pointer',padding:'3px 8px',fontWeight:700,fontFamily:F}}>Remove</button>}
+function Block({children,title,onRemove,canRemove,accent=C.teal}:{children:React.ReactNode;title?:string;onRemove?:()=>void;canRemove?:boolean;accent?:string}){
+  return<div style={{background:C.white,borderRadius:12,border:`1.5px solid ${C.border}`,padding:'20px 18px',marginBottom:12,position:'relative'}}>
+    {title&&<div style={{fontSize:12,fontWeight:700,color:accent,textTransform:'uppercase',letterSpacing:1,marginBottom:14,fontFamily:F}}>{title}</div>}
+    {canRemove&&onRemove&&<button onClick={onRemove} style={{position:'absolute',top:14,right:14,background:'none',border:'none',color:C.gray400,fontSize:20,cursor:'pointer',lineHeight:1,padding:0}}>×</button>}
     {children}
   </div>;
 }
+function AddBtn({onClick,label}:{onClick:()=>void;label:string}){
+  return<button onClick={onClick} style={{width:'100%',padding:'11px 0',borderRadius:9,background:'none',border:`1.5px dashed ${C.teal}`,color:C.teal,fontWeight:600,fontSize:14,cursor:'pointer',fontFamily:F,marginBottom:6,display:'flex',alignItems:'center',justifyContent:'center',gap:6}}>
+    <span style={{fontSize:18,lineHeight:1}}>+</span> {label}
+  </button>;
+}
+function Progress({step,total,sections}:{step:number;total:number;sections:{label:string}[]}){
+  const pct=Math.round(((step)/(total))*100);
+  const mins=Math.max(1,Math.round((total-step)*2.5));
+  return<div style={{marginBottom:20}}>
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
+      <span style={{fontSize:13,color:C.gray600,fontFamily:F,fontWeight:500}}>{step===0?'Starting up':step>=total?'Almost done':`Section ${step} of ${total}`}</span>
+      <span style={{fontSize:12,color:C.gray400,fontFamily:F}}>{step>=total?'Review your answers':`~${mins} min remaining`}</span>
+    </div>
+    <div style={{height:6,background:C.gray100,borderRadius:3,overflow:'hidden'}}>
+      <div style={{width:`${pct}%`,height:'100%',borderRadius:3,background:`linear-gradient(90deg, ${C.teal}, ${C.tealDark})`,transition:'width .5s ease'}}/>
+    </div>
+    <div style={{display:'flex',gap:3,marginTop:6}}>
+      {sections.map((_,i)=><div key={i} style={{flex:1,height:3,borderRadius:2,background:i<step?C.teal:i===step-1?C.tealDim:C.gray100,transition:'background .3s'}}/>)}
+    </div>
+  </div>;
+}
 
-// ── Resume upload ─────────────────────────────────────────────────────────
+// ── Resume Upload ─────────────────────────────────────────────────────────────
 function ResumeUpload({onSkip}:{onSkip:()=>void}){
   const [dragging,setDragging]=useState(false);
   const [file,setFile]=useState<File|null>(null);
   const ref=useRef<HTMLInputElement>(null);
-  function handleFile(f:File|null){if(f&&(f.type==='application/pdf'||f.name.endsWith('.docx')))setFile(f);}
+  function handleFile(f:File|null){if(f&&(f.type==='application/pdf'||f.name.endsWith('.docx')||f.name.endsWith('.doc')))setFile(f);}
   return<div style={{background:C.bg,minHeight:'100vh',fontFamily:F,display:'flex',alignItems:'center',justifyContent:'center',padding:24}}>
-    <div style={{maxWidth:520,width:'100%'}}>
-      <div style={{textAlign:'center',marginBottom:32}}>
-        <div style={{display:'inline-flex',alignItems:'center',gap:8,marginBottom:20}}>
-          <div style={{width:28,height:28,borderRadius:6,background:C.teal,display:'flex',alignItems:'center',justifyContent:'center',fontWeight:800,fontSize:12,color:C.white}}>M</div>
-          <span style={{fontWeight:800,fontSize:16,color:C.slate,letterSpacing:-0.3}}>Matcht</span>
-        </div>
-        <h1 style={{fontSize:28,fontWeight:800,color:C.slate,margin:'0 0 12px',letterSpacing:-0.5,lineHeight:1.2}}>Got a resume?<br/>Let's use it one last time.</h1>
-        <p style={{fontSize:15,color:C.gray600,margin:'0 auto',lineHeight:1.65,maxWidth:400}}>Upload it and we'll pre-fill your profile. After this, your Matcht profile does the work — no resume needed.</p>
+    <div style={{maxWidth:540,width:'100%'}}>
+      <div style={{display:'flex',alignItems:'center',gap:8,justifyContent:'center',marginBottom:28}}>
+        <div style={{width:30,height:30,borderRadius:7,background:C.teal,display:'flex',alignItems:'center',justifyContent:'center',fontWeight:800,fontSize:13,color:C.white}}>M</div>
+        <span style={{fontWeight:800,fontSize:17,color:C.slate,letterSpacing:-0.3}}>Matcht</span>
       </div>
-      <div style={{background:C.white,borderRadius:14,border:`1px solid ${C.border}`,padding:'24px 22px'}}>
-        <div onDragOver={e=>{e.preventDefault();setDragging(true);}} onDragLeave={()=>setDragging(false)} onDrop={e=>{e.preventDefault();setDragging(false);handleFile(e.dataTransfer.files[0]??null);}} onClick={()=>ref.current?.click()} style={{border:`2px dashed ${dragging?C.teal:C.gray200}`,borderRadius:12,padding:'44px 24px',textAlign:'center',cursor:'pointer',background:dragging?C.tealDim:C.bg,transition:'all .2s'}}>
-          <input ref={ref} type="file" accept=".pdf,.docx" onChange={e=>handleFile(e.target.files?.[0]??null)} style={{display:'none'}}/>
-          {file
-            ?<><div style={{fontSize:36,marginBottom:8}}>📄</div><div style={{fontWeight:700,fontSize:15,color:C.teal,marginBottom:4}}>{file.name}</div><div style={{fontSize:13,color:C.gray400}}>Ready</div></>
-            :<><div style={{fontSize:36,marginBottom:10}}>📎</div><div style={{fontWeight:600,fontSize:15,color:C.slate,marginBottom:6}}>Drop your resume here</div><div style={{fontSize:13,color:C.gray400,marginBottom:12}}>or click to browse</div><div style={{fontSize:12,color:C.gray400}}>PDF or Word · Max 10MB</div></>}
+      <Card style={{padding:'40px 36px'}}>
+        <div style={{textAlign:'center',marginBottom:32}}>
+          <div style={{fontSize:48,marginBottom:16}}>📄</div>
+          <h1 style={{fontSize:26,fontWeight:800,color:C.slate,margin:'0 0 12px',letterSpacing:-0.5,lineHeight:1.2}}>Got a resume?<br/>Let&apos;s use it one last time.</h1>
+          <p style={{fontSize:15,color:C.gray600,margin:0,lineHeight:1.7}}>Upload it and we&apos;ll pre-fill your profile automatically. After this, your Matcht profile <em>is</em> your resume — and it works for you around the clock.</p>
         </div>
-        {file&&<button onClick={onSkip} style={{width:'100%',padding:'13px 0',borderRadius:8,background:C.teal,color:C.white,border:'none',fontWeight:700,fontSize:15,cursor:'pointer',fontFamily:F,marginTop:14}}>Continue →</button>}
-        <button onClick={onSkip} style={{width:'100%',padding:'11px 0',borderRadius:8,background:'none',border:`1.5px solid ${C.border}`,color:C.gray600,fontWeight:600,fontSize:13,cursor:'pointer',fontFamily:F,marginTop:8}}>
-          {file?'Skip — fill in manually':'Start fresh — no resume'}
+        <div onDragOver={e=>{e.preventDefault();setDragging(true);}} onDragLeave={()=>setDragging(false)}
+          onDrop={e=>{e.preventDefault();setDragging(false);handleFile(e.dataTransfer.files[0]??null);}}
+          onClick={()=>ref.current?.click()}
+          style={{border:`2px dashed ${dragging?C.teal:file?C.green:C.gray200}`,borderRadius:12,padding:'32px 24px',textAlign:'center',cursor:'pointer',background:dragging?C.tealDim:file?C.greenDim:C.bg,transition:'all .2s',marginBottom:16}}>
+          <input ref={ref} type="file" accept=".pdf,.doc,.docx" onChange={e=>handleFile(e.target.files?.[0]??null)} style={{display:'none'}}/>
+          {file?<>
+            <div style={{fontSize:32,marginBottom:8}}>✅</div>
+            <div style={{fontWeight:700,fontSize:15,color:C.green,marginBottom:4}}>{file.name}</div>
+            <div style={{fontSize:13,color:C.gray400}}>Click to choose a different file</div>
+          </>:<>
+            <div style={{fontSize:32,marginBottom:10}}>📎</div>
+            <div style={{fontWeight:600,fontSize:15,color:C.slate,marginBottom:5}}>Drop your resume here</div>
+            <div style={{fontSize:13,color:C.gray400,marginBottom:8}}>or click to browse your files</div>
+            <div style={{display:'inline-block',background:C.gray100,borderRadius:20,padding:'4px 12px',fontSize:12,color:C.gray600}}>PDF, DOC, or DOCX · Max 10MB</div>
+          </>}
+        </div>
+        <button onClick={onSkip} style={{width:'100%',padding:'11px 0',borderRadius:9,background:'none',border:`1.5px solid ${C.border}`,color:C.gray600,fontWeight:600,fontSize:14,cursor:'pointer',fontFamily:F}}>
+          {file?'Skip — I\'ll fill it in manually':'I don\'t have a resume — start from scratch'}
         </button>
-      </div>
-      <p style={{textAlign:'center',fontSize:12,color:C.gray400,marginTop:14}}>Your resume is only used to pre-fill — never shared with employers.</p>
+        <p style={{textAlign:'center',fontSize:12,color:C.gray400,marginTop:14,lineHeight:1.5}}>Your resume is used only to pre-fill your profile.<br/>It is never shared with employers.</p>
+      </Card>
     </div>
   </div>;
 }
 
-// ── Survey sections ───────────────────────────────────────────────────────
+// ── Section 1: Basic Info & Online Presence ───────────────────────────────────
 function S1({d,set}:SecProps){return<>
-  <SLabel c="Section 1"/>
-  <h2 style={{fontSize:22,fontWeight:800,color:C.slate,margin:'0 0 4px',letterSpacing:-0.5,fontFamily:F}}>Basic Information</h2>
-  <Sub c="The fundamentals — used for location-based matching and contact."/>
-  <HR/>
-  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14,marginBottom:16}}>
-    <div><QLabel c="First name" req/><FInput value={d.firstName} onChange={v=>set(x=>({...x,firstName:v}))} placeholder="Jane"/></div>
-    <div><QLabel c="Last name" req/><FInput value={d.lastName} onChange={v=>set(x=>({...x,lastName:v}))} placeholder="Smith"/></div>
+  <ST section="Section 1 of 9" title="Basic Information" sub="Contact details and your online presence. Used for matching, communication, and your public profile."/>
+  <Div/>
+  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:16}}>
+    <div><FL required>First name</FL><TI value={d.firstName} onChange={v=>set(x=>({...x,firstName:v}))} placeholder="Jane"/></div>
+    <div><FL required>Last name</FL><TI value={d.lastName} onChange={v=>set(x=>({...x,lastName:v}))} placeholder="Smith"/></div>
   </div>
-  <div style={{marginBottom:16}}><QLabel c="Email address" req/><FInput value={d.email} onChange={v=>set(x=>({...x,email:v}))} placeholder="jane@example.com" type="email"/></div>
-  <div style={{marginBottom:16}}><QLabel c="Phone number"/><FInput value={d.phone} onChange={v=>set(x=>({...x,phone:v}))} placeholder="+1 (555) 000-0000"/></div>
-  <div style={{display:'grid',gridTemplateColumns:'2fr 1fr',gap:14,marginBottom:16}}>
-    <div><QLabel c="City & state" req/><FInput value={d.location} onChange={v=>set(x=>({...x,location:v}))} placeholder="Chicago, IL"/></div>
-    <div><QLabel c="ZIP code" req/><FInput value={d.zip} onChange={v=>set(x=>({...x,zip:v}))} placeholder="60601"/></div>
+  <div style={{marginBottom:16}}><FL required>Email address</FL><TI value={d.email} onChange={v=>set(x=>({...x,email:v}))} placeholder="jane@example.com" type="email"/></div>
+  <div style={{marginBottom:16}}><FL optional>Phone number</FL><TI value={d.phone} onChange={v=>set(x=>({...x,phone:v}))} placeholder="+1 (555) 000-0000"/></div>
+  <div style={{display:'grid',gridTemplateColumns:'2fr 1fr',gap:12,marginBottom:16}}>
+    <div><FL required>City & state</FL><TI value={d.location} onChange={v=>set(x=>({...x,location:v}))} placeholder="Chicago, IL"/></div>
+    <div><FL required>ZIP code</FL><TI value={d.zip} onChange={v=>set(x=>({...x,zip:v}))} placeholder="60601"/></div>
   </div>
-  <HR/>
-  <QLabel c="Legally authorized to work in the United States?" req/>
-  <Radio options={['Yes, without sponsorship','Yes, but I require sponsorship','No']} value={d.workAuth} onChange={v=>set(x=>({...x,workAuth:v}))}/>
-  <HR/>
-  <QLabel c={<>Veteran / disability status <span style={{fontSize:12,fontWeight:400,color:C.gray400}}>(optional)</span></>}/>
-  <Sub c="Used only for EEOC reporting — no effect on your match score."/>
-  <Pills options={['U.S. Military Veteran','Person with a disability','Not a veteran / does not apply','Prefer not to answer']} values={d.eeoc} onChange={v=>set(x=>({...x,eeoc:v}))}/>
+  <Div label="Professional headline"/>
+  <div style={{marginBottom:16}}>
+    <FL optional hint="Your professional tagline — shown on your profile. 120 characters max.">Headline</FL>
+    <TI value={d.headline} onChange={v=>set(x=>({...x,headline:v.slice(0,120)}))} placeholder="e.g. Senior Product Manager · Scaling B2B SaaS · Ex-Google"/>
+    <div style={{fontSize:11,color:d.headline.length>100?C.amber:C.gray400,marginTop:3,textAlign:'right',fontFamily:F}}>{d.headline.length}/120</div>
+  </div>
+  <Div label="Online presence"/>
+  <div style={{marginBottom:12}}><FL optional>LinkedIn URL</FL><TI value={d.linkedin} onChange={v=>set(x=>({...x,linkedin:v}))} placeholder="https://linkedin.com/in/yourname"/></div>
+  <div style={{marginBottom:12}}><FL optional>Personal website or portfolio</FL><TI value={d.website} onChange={v=>set(x=>({...x,website:v}))} placeholder="https://yourname.com"/></div>
+  <div style={{marginBottom:16}}><FL optional>GitHub, Dribbble, Behance, or other</FL><TI value={d.otherLink} onChange={v=>set(x=>({...x,otherLink:v}))} placeholder="https://github.com/yourname"/></div>
+  <Div label="Eligibility"/>
+  <div style={{marginBottom:16}}>
+    <FL required>Are you legally authorized to work in the United States?</FL>
+    <RG options={['Yes, without sponsorship','Yes, but I require sponsorship','No']} value={d.workAuth} onChange={v=>set(x=>({...x,workAuth:v}))}/>
+  </div>
+  <Div label="Voluntary self-identification (optional)"/>
+  <p style={{fontSize:13,color:C.gray400,margin:'0 0 12px',fontFamily:F,lineHeight:1.6}}>Entirely optional — used only for EEOC compliance reporting with enterprise clients. No effect on your match score or visibility.</p>
+  <div style={{marginBottom:12}}><FL optional>Gender identity</FL><Sel value={d.gender} onChange={v=>set(x=>({...x,gender:v}))} options={['Male','Female','Non-binary','Prefer to self-describe','Prefer not to answer']}/></div>
+  <div style={{marginBottom:12}}><FL optional>Race / ethnicity</FL><Sel value={d.race} onChange={v=>set(x=>({...x,race:v}))} options={['American Indian or Alaska Native','Asian','Black or African American','Hispanic or Latino','Native Hawaiian or Other Pacific Islander','White','Two or more races','Prefer not to answer']}/></div>
+  <div style={{marginBottom:12}}><FL optional>Veteran status</FL><Sel value={d.veteran} onChange={v=>set(x=>({...x,veteran:v}))} options={['Not a veteran','Active duty military','U.S. Military Veteran','Disabled veteran','Prefer not to answer']}/></div>
+  <div><FL optional>Disability status</FL><Sel value={d.disability} onChange={v=>set(x=>({...x,disability:v}))} options={['No disability','Yes, I have a disability','Prefer not to answer']}/></div>
 </>;}
 
-function S2({d,set}:SecProps){
-  function addDeg(){set(x=>({...x,degrees:[...x.degrees,{...BLANK_DEGREE}]}));}
-  function updDeg(i:number,f:keyof Degree,v:string|boolean){set(x=>({...x,degrees:x.degrees.map((d,idx)=>idx===i?{...d,[f]:v}:d)}));}
-  function remDeg(i:number){set(x=>({...x,degrees:x.degrees.filter((_,idx)=>idx!==i)}));}
+// ── Section 2: Professional Summary ──────────────────────────────────────────
+function S2({d,set}:SecProps){return<>
+  <ST section="Section 2 of 9" title="Professional Summary" sub="Your story in your own words. The most human part of your profile — the part a resume never captures."/>
+  <Div/>
+  <div style={{marginBottom:20}}>
+    <FL optional hint="Write like you're introducing yourself to a hiring manager at a conference. 2,000 characters max.">About you</FL>
+    <TA value={d.summary} onChange={v=>set(x=>({...x,summary:v.slice(0,2000)}))} placeholder={'Who are you professionally? What drives you? What\'s your superpower? What are you looking for next?\n\nExample: "I\'m a product leader with 10 years building B2B SaaS at companies from seed to IPO..."'} rows={8}/>
+    <div style={{fontSize:11,color:d.summary.length>1800?C.amber:C.gray400,marginTop:3,textAlign:'right',fontFamily:F}}>{d.summary.length}/2,000</div>
+  </div>
+  <div style={{marginBottom:20}}>
+    <FL optional hint="Specific, quantifiable wins you want employers to notice immediately.">Top 3 career accomplishments</FL>
+    {[0,1,2].map(i=><div key={i} style={{marginBottom:8}}>
+      <TI value={d.accomplishments[i]||''} onChange={v=>set(x=>({...x,accomplishments:x.accomplishments.map((a,idx)=>idx===i?v:a)}))} placeholder={i===0?'e.g. Grew ARR from $2M to $18M in 24 months as Head of Growth':i===1?'e.g. Led a team of 12 engineers to ship the core platform 3 months ahead of schedule':'e.g. Reduced customer churn by 34% through a new onboarding program'}/>
+    </div>)}
+  </div>
+</>;}
+
+// ── Section 3: Education ──────────────────────────────────────────────────────
+function S3({d,set}:SecProps){
   const hasDeg=(l:string)=>["Bachelor's degree","Master's degree","MBA","JD / Law degree","MD / Medical degree","PhD or Doctorate","Associate's degree"].includes(l);
+  function addDeg(){set(x=>({...x,degrees:[...x.degrees,{...BD}]}));}
+  function updD(i:number,k:keyof Degree,v:string|boolean){set(x=>({...x,degrees:x.degrees.map((d,idx)=>idx===i?{...d,[k]:v}:d)}));}
+  function remD(i:number){set(x=>({...x,degrees:x.degrees.filter((_,idx)=>idx!==i)}));}
+  function addC(){set(x=>({...x,certifications:[...x.certifications,{...BC}]}));}
+  function updC(i:number,k:keyof Cert,v:string){set(x=>({...x,certifications:x.certifications.map((c,idx)=>idx===i?{...c,[k]:v}:c)}));}
+  function remC(i:number){set(x=>({...x,certifications:x.certifications.filter((_,idx)=>idx!==i)}));}
   return<>
-    <SLabel c="Section 2"/>
-    <h2 style={{fontSize:22,fontWeight:800,color:C.slate,margin:'0 0 4px',letterSpacing:-0.5,fontFamily:F}}>Education</h2>
-    <Sub c="Add all degrees. You don't need a degree to use Matcht — this is for matching accuracy only."/>
-    <HR/>
-    {d.degrees.map((deg,i)=><Block key={i} onRemove={()=>remDeg(i)} canRemove={d.degrees.length>1} label={`Degree ${i+1}`}>
-      <div style={{marginBottom:12}}><QLabel c="Level"/><FSel value={deg.level} onChange={v=>updDeg(i,'level',v)} options={EDUCATION_LEVELS_SEEKER} placeholder="Select level..."/></div>
+    <ST section="Section 3 of 9" title="Education" sub="Add all degrees, certifications, and credentials."/>
+    <Div label="Degrees & programs"/>
+    {d.degrees.map((deg,i)=><Block key={i} title={i===0?'Primary degree':'Additional degree'} onRemove={()=>remD(i)} canRemove={d.degrees.length>1}>
+      <div style={{marginBottom:12}}><FL>Degree level</FL><Sel value={deg.level} onChange={v=>updD(i,'level',v)} options={EDUCATION_LEVELS_SEEKER} placeholder="Select level..."/></div>
       {hasDeg(deg.level)&&<>
-        <div style={{marginBottom:12}}><QLabel c="Field of study / Major"/><FInput value={deg.field} onChange={v=>updDeg(i,'field',v)} placeholder="e.g. Computer Science, Finance"/></div>
-        <div style={{marginBottom:12}}><QLabel c="University or institution"/><ACInput value={deg.university} onChange={v=>updDeg(i,'university',v)} suggestions={UNIVERSITIES} placeholder="Start typing your school..."/></div>
-        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
-          <div><QLabel c="Graduation year"/><FInput value={deg.gradYear} onChange={v=>updDeg(i,'gradYear',v)} placeholder="e.g. 2018"/></div>
-          <div style={{paddingTop:30}}><label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer'}}><input type="checkbox" checked={deg.current} onChange={e=>updDeg(i,'current',e.target.checked)} style={{accentColor:C.teal,width:15,height:15}}/><span style={{fontSize:13,color:C.slate,fontFamily:F}}>Currently enrolled</span></label></div>
+        <div style={{marginBottom:12}}><FL>Field of study / Major</FL><TI value={deg.field} onChange={v=>updD(i,'field',v)} placeholder="e.g. Computer Science, Business Administration"/></div>
+        <div style={{marginBottom:12}}><FL>University or institution</FL><AI value={deg.university} onChange={v=>updD(i,'university',v)} suggestions={UNIVERSITIES} placeholder="Start typing your school..."/></div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10,marginBottom:12}}>
+          <div><FL>Graduation year</FL><TI value={deg.gradYear} onChange={v=>updD(i,'gradYear',v)} placeholder="2018"/></div>
+          <div><FL optional>GPA</FL><TI value={deg.gpa} onChange={v=>updD(i,'gpa',v)} placeholder="3.8"/></div>
+          <div style={{paddingTop:26}}><label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer'}}><input type="checkbox" checked={deg.current} onChange={e=>updD(i,'current',e.target.checked)} style={{accentColor:C.teal,width:16,height:16}}/><span style={{fontSize:13,color:C.slate,fontFamily:F}}>Currently enrolled</span></label></div>
         </div>
+        <div style={{marginBottom:8}}><FL optional>Activities, societies, or thesis</FL><TI value={deg.activities} onChange={v=>updD(i,'activities',v)} placeholder="e.g. Investment club president, Thesis: ML in credit risk"/></div>
       </>}
     </Block>)}
-    <button onClick={addDeg} style={{width:'100%',padding:'11px 0',borderRadius:8,background:'none',border:`1.5px dashed ${C.teal}`,color:C.teal,fontWeight:600,fontSize:13,cursor:'pointer',fontFamily:F,marginBottom:20}}>+ Add another degree</button>
-    <HR/>
-    <QLabel c="Professional certifications or licenses"/>
-    <Sub c="Any not captured above — separate with commas."/>
-    <FInput value={d.certs} onChange={v=>set(x=>({...x,certs:v}))} placeholder="e.g. PMP, CPA, AWS Solutions Architect, Series 7"/>
-  </>;}
-
-function S3({d,set}:SecProps){
-  function addJob(){set(x=>({...x,jobs:[...x.jobs,{...BLANK_JOB}]}));}
-  function updJob(i:number,f:keyof WorkJob,v:string|boolean){set(x=>({...x,jobs:x.jobs.map((j,idx)=>idx===i?{...j,[f]:v}:j)}));}
-  function remJob(i:number){set(x=>({...x,jobs:x.jobs.filter((_,idx)=>idx!==i)}));}
-  return<>
-    <SLabel c="Section 3"/>
-    <h2 style={{fontSize:22,fontWeight:800,color:C.slate,margin:'0 0 4px',letterSpacing:-0.5,fontFamily:F}}>Work History</h2>
-    <Sub c="Start with your most recent role. This replaces a resume — be thorough."/>
-    <HR/>
-    {d.jobs.map((job,i)=><Block key={i} onRemove={()=>remJob(i)} canRemove={d.jobs.length>1} label={i===0?'Most recent role':`Role ${i+1}`}>
-      <div style={{marginBottom:12}}><QLabel c="Job title" req/><FInput value={job.title} onChange={v=>updJob(i,'title',v)} placeholder="e.g. Senior Product Manager"/></div>
-      <div style={{marginBottom:12}}><QLabel c="Company" req/><FInput value={job.company} onChange={v=>updJob(i,'company',v)} placeholder="e.g. Acme Corp"/></div>
-      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:8}}>
-        <div><QLabel c="Start date"/><FInput value={job.startDate} onChange={v=>updJob(i,'startDate',v)} placeholder="MM/YYYY"/></div>
-        <div><QLabel c="End date"/><FInput value={job.endDate} onChange={v=>updJob(i,'endDate',v)} placeholder="MM/YYYY" disabled={job.current}/></div>
+    <AddBtn onClick={addDeg} label="Add another degree or program"/>
+    <Div label="Certifications & licenses"/>
+    {d.certifications.map((cert,i)=><Block key={i} title={`Certification ${i+1}`} onRemove={()=>remC(i)} canRemove={true}>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:10}}>
+        <div><FL>Certification name</FL><TI value={cert.name} onChange={v=>updC(i,'name',v)} placeholder="e.g. AWS Solutions Architect"/></div>
+        <div><FL>Issuing organization</FL><TI value={cert.issuer} onChange={v=>updC(i,'issuer',v)} placeholder="e.g. Amazon Web Services"/></div>
       </div>
-      <label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',marginBottom:14}}><input type="checkbox" checked={job.current} onChange={e=>updJob(i,'current',e.target.checked)} style={{accentColor:C.teal,width:15,height:15}}/><span style={{fontSize:13,color:C.slate,fontFamily:F}}>I currently work here</span></label>
-      <div style={{marginBottom:12}}><QLabel c="Key responsibilities"/><FTA value={job.responsibilities} onChange={v=>updJob(i,'responsibilities',v)} placeholder="What did you own? What were your core duties?" rows={3}/></div>
-      <QLabel c="Key accomplishments"/><FTA value={job.accomplishments} onChange={v=>updJob(i,'accomplishments',v)} placeholder="What did you achieve? Use numbers — e.g. grew revenue 40%, reduced churn 12%..." rows={3}/>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10}}>
+        <div><FL>Issue date</FL><TI value={cert.date} onChange={v=>updC(i,'date',v)} placeholder="MM/YYYY"/></div>
+        <div><FL>Expiry (if any)</FL><TI value={cert.expiry} onChange={v=>updC(i,'expiry',v)} placeholder="MM/YYYY or N/A"/></div>
+        <div><FL optional>Credential ID</FL><TI value={cert.credentialId} onChange={v=>updC(i,'credentialId',v)} placeholder="ABC-12345"/></div>
+      </div>
     </Block>)}
-    <button onClick={addJob} style={{width:'100%',padding:'11px 0',borderRadius:8,background:'none',border:`1.5px dashed ${C.teal}`,color:C.teal,fontWeight:600,fontSize:13,cursor:'pointer',fontFamily:F,marginBottom:20}}>+ Add another role</button>
-    <HR/>
-    <QLabel c={<>Gaps in work history? <span style={{fontSize:12,fontWeight:400,color:C.gray400}}>(optional)</span></>}/>
-    <FTA value={d.gaps} onChange={v=>set(x=>({...x,gaps:v}))} placeholder="e.g. Took time off for family, freelanced, traveled..." rows={2}/>
-    <HR/>
-    <QLabel c="Current employment status"/>
-    <Radio options={['Employed full-time','Employed part-time','Self-employed / Freelance','Currently unemployed','Student','Career break']} value={d.empStatus} onChange={v=>set(x=>({...x,empStatus:v}))}/>
+    <AddBtn onClick={addC} label="Add a certification or license"/>
+    <Div label="Test scores (optional)"/>
+    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+      {([['GMAT','gmat'],['GRE','gre'],['LSAT','lsat'],['MCAT','mcat'],['Bar Exam','bar'],['CFA Level','cfa']] as [string,string][]).map(([label,key])=><div key={key}><FL optional>{label}</FL><TI value={d.testScores[key]||''} onChange={v=>set(x=>({...x,testScores:{...x.testScores,[key]:v}}))} placeholder="Score or pass/fail"/></div>)}
+    </div>
   </>;}
 
-function S4({d,set}:SecProps){return<>
-  <SLabel c="Section 4"/>
-  <h2 style={{fontSize:22,fontWeight:800,color:C.slate,margin:'0 0 4px',letterSpacing:-0.5,fontFamily:F}}>Skills</h2>
-  <Sub c="Type any skill and press Enter. Be honest — overstating leads to bad matches."/>
-  <HR/>
-  <QLabel c="Your skills" req/>
-  <Sub c="All skills in one place — technical, soft, and domain-specific. Type + Enter to add each one."/>
-  <TagInput values={d.skills} onChange={v=>set(x=>({...x,skills:v}))} suggestions={SKILL_SUGGESTIONS} placeholder="e.g. Product Management, SQL, Leadership, Figma..."/>
-  {d.skills.length>0&&<div style={{fontSize:12,color:C.gray400,marginTop:8,fontFamily:F}}>{d.skills.length} skill{d.skills.length===1?'':'s'} added</div>}
-  <HR/>
-  <QLabel c="Overall experience level" req/>
-  <Radio options={['Entry — building foundational skills','Mid-level — solid independent contributor','Senior — deep expertise, sometimes leads others','Lead / Principal — sets direction, mentors others','Executive — organizational leadership']} value={d.seniority} onChange={v=>set(x=>({...x,seniority:v}))}/>
-  <HR/>
-  <QLabel c="Industries you've worked in"/>
-  <MultiDropdown options={INDUSTRIES} values={d.industries} onChange={v=>set(x=>({...x,industries:v}))} placeholder="Search and select industries..."/>
-  {d.industries.length>0&&<div style={{fontSize:12,color:C.gray400,marginTop:8,fontFamily:F}}>{d.industries.length} selected</div>}
-</>;}
+// ── Section 4: Work History ───────────────────────────────────────────────────
+function S4({d,set}:SecProps){
+  const months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const years=Array.from({length:40},(_,i)=>(new Date().getFullYear()-i).toString());
+  function addJ(){set(x=>({...x,jobs:[...x.jobs,{...BJ}]}));}
+  function updJ(i:number,k:keyof WorkJob,v:string|boolean){set(x=>({...x,jobs:x.jobs.map((j,idx)=>idx===i?{...j,[k]:v}:j)}));}
+  function updA(i:number,ai:number,v:string){set(x=>({...x,jobs:x.jobs.map((j,idx)=>idx===i?{...j,accomplishments:j.accomplishments.map((a,aidx)=>aidx===ai?v:a)}:j)}));}
+  function remJ(i:number){set(x=>({...x,jobs:x.jobs.filter((_,idx)=>idx!==i)}));}
+  function addV(){set(x=>({...x,volunteer:[...x.volunteer,{...BV}]}));}
+  function updV(i:number,k:keyof Volunteer,v:string|boolean){set(x=>({...x,volunteer:x.volunteer.map((v2,idx)=>idx===i?{...v2,[k]:v}:v2)}));}
+  function remV(i:number){set(x=>({...x,volunteer:x.volunteer.filter((_,idx)=>idx!==i)}));}
+  return<>
+    <ST section="Section 4 of 9" title="Work History" sub="This replaces your resume entirely. The more detail you provide, the better your matches."/>
+    <Div label="Professional experience"/>
+    {d.jobs.map((job,i)=><Block key={i} title={i===0?'Most recent role':`Previous role ${i}`} onRemove={()=>remJ(i)} canRemove={d.jobs.length>1}>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:10}}>
+        <div><FL required>Job title</FL><TI value={job.title} onChange={v=>updJ(i,'title',v)} placeholder="e.g. Senior Product Manager"/></div>
+        <div><FL required>Company</FL><TI value={job.company} onChange={v=>updJ(i,'company',v)} placeholder="e.g. Acme Corp"/></div>
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:10}}>
+        <div><FL optional>Location</FL><TI value={job.location} onChange={v=>updJ(i,'location',v)} placeholder="e.g. Chicago, IL or Remote"/></div>
+        <div><FL optional>Employment type</FL><Sel value={job.employmentType} onChange={v=>updJ(i,'employmentType',v)} options={['Full-time','Part-time','Contract','Internship','Freelance','Temporary']}/></div>
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:10}}>
+        <div>
+          <FL>Start date</FL>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6}}>
+            <Sel value={job.startMonth} onChange={v=>updJ(i,'startMonth',v)} options={months} placeholder="Month"/>
+            <Sel value={job.startYear} onChange={v=>updJ(i,'startYear',v)} options={years} placeholder="Year"/>
+          </div>
+        </div>
+        <div>
+          <FL>End date</FL>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6}}>
+            <Sel value={job.endMonth} onChange={v=>updJ(i,'endMonth',v)} options={months} placeholder="Month" disabled={job.current}/>
+            <Sel value={job.endYear} onChange={v=>updJ(i,'endYear',v)} options={years} placeholder="Year" disabled={job.current}/>
+          </div>
+          <label style={{display:'flex',alignItems:'center',gap:7,marginTop:7,cursor:'pointer'}}><input type="checkbox" checked={job.current} onChange={e=>updJ(i,'current',e.target.checked)} style={{accentColor:C.teal,width:14,height:14}}/><span style={{fontSize:12,color:C.slate,fontFamily:F}}>I currently work here</span></label>
+        </div>
+      </div>
+      <div style={{marginBottom:10}}>
+        <FL optional hint="What did you own? What were your core responsibilities?">Role description</FL>
+        <TA value={job.description} onChange={v=>updJ(i,'description',v)} placeholder="Describe your role, team size, scope of responsibilities..." rows={3}/>
+      </div>
+      <div style={{marginBottom:10}}>
+        <FL optional hint="Use numbers where possible — revenue, growth %, team size, cost savings.">Key accomplishments</FL>
+        {job.accomplishments.map((acc,ai)=><div key={ai} style={{marginBottom:7}}>
+          <TI value={acc} onChange={v=>updA(i,ai,v)} placeholder={ai===0?'e.g. Grew ARR from $2M to $18M in 24 months':ai===1?'e.g. Led team of 12 engineers to ship core platform 3 months early':'e.g. Reduced churn by 34% through new onboarding program'}/>
+        </div>)}
+      </div>
+      {!job.current&&<div>
+        <FL optional>Reason for leaving (not shown to recruiters)</FL>
+        <Sel value={job.reasonForLeaving} onChange={v=>updJ(i,'reasonForLeaving',v)} options={['Better opportunity','Layoff / reduction in force','Company closed','Seeking career growth','Relocation','Personal reasons','Contract ended','Pursuing education','Other']} placeholder="Select a reason..."/>
+      </div>}
+    </Block>)}
+    <AddBtn onClick={addJ} label="Add another role"/>
+    <Div label="Volunteer experience (optional)"/>
+    <p style={{fontSize:13,color:C.gray400,margin:'0 0 12px',fontFamily:F}}>Volunteer work can be just as relevant as paid experience and is a factor in culture and mission-driven matching.</p>
+    {d.volunteer.map((v,i)=><Block key={i} title={`Volunteer role ${i+1}`} onRemove={()=>remV(i)} canRemove={true} accent={C.green}>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:10}}>
+        <div><FL>Organization</FL><TI value={v.org} onChange={val=>updV(i,'org',val)} placeholder="e.g. Habitat for Humanity"/></div>
+        <div><FL>Role</FL><TI value={v.role} onChange={val=>updV(i,'role',val)} placeholder="e.g. Board Member, Volunteer Coach"/></div>
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10,marginBottom:10}}>
+        <div><FL>Cause / focus area</FL><TI value={v.cause} onChange={val=>updV(i,'cause',val)} placeholder="e.g. Housing, Education"/></div>
+        <div><FL>Start year</FL><Sel value={v.startYear} onChange={val=>updV(i,'startYear',val)} options={years} placeholder="Year"/></div>
+        <div>
+          <FL>End year</FL>
+          <Sel value={v.endYear} onChange={val=>updV(i,'endYear',val)} options={years} placeholder="Year" disabled={v.current}/>
+          <label style={{display:'flex',alignItems:'center',gap:6,marginTop:5,cursor:'pointer'}}><input type="checkbox" checked={v.current} onChange={e=>updV(i,'current',e.target.checked)} style={{accentColor:C.teal,width:13,height:13}}/><span style={{fontSize:11,color:C.slate,fontFamily:F}}>Ongoing</span></label>
+        </div>
+      </div>
+      <div><FL optional>Description</FL><TA value={v.description} onChange={val=>updV(i,'description',val)} placeholder="What did you do? What impact did it have?" rows={2}/></div>
+    </Block>)}
+    <AddBtn onClick={addV} label="Add volunteer experience"/>
+    <Div label="Employment gaps"/>
+    <div style={{marginBottom:16}}><FL optional hint="Only share what you're comfortable with.">Any gaps you'd like to explain?</FL><TA value={d.gaps} onChange={v=>set(x=>({...x,gaps:v}))} placeholder="e.g. Took 18 months off to care for a family member. Returned to work in 2023." rows={2}/></div>
+    <FL>Current employment status</FL>
+    <RG options={['Employed full-time','Employed part-time','Self-employed / Freelance','Currently unemployed','Student','Career break (planned)']} value={d.empStatus} onChange={v=>set(x=>({...x,empStatus:v}))}/>
+  </>;}
 
+// ── Section 5: Skills & Expertise ────────────────────────────────────────────
 function S5({d,set}:SecProps){
+  function addP(){set(x=>({...x,projects:[...x.projects,{...BP}]}));}
+  function updP(i:number,k:keyof Project,v:string){set(x=>({...x,projects:x.projects.map((p,idx)=>idx===i?{...p,[k]:v}:p)}));}
+  function remP(i:number){set(x=>({...x,projects:x.projects.filter((_,idx)=>idx!==i)}));}
+  return<>
+    <ST section="Section 5 of 9" title="Skills & Expertise" sub="Type any skill and press Enter. The more accurately you represent your skills, the better your matches."/>
+    <Div/>
+    <div style={{marginBottom:20}}>
+      <FL required hint="Include technical, functional, and interpersonal skills all in one place. Press Enter or comma to add.">Your skills</FL>
+      <TagInput values={d.skills} onChange={v=>set(x=>({...x,skills:v}))} suggestions={SKILL_SUGGESTIONS} placeholder="e.g. Product Management, SQL, Leadership, React..."/>
+      {d.skills.length>0&&<div style={{fontSize:12,color:C.gray400,marginTop:6,fontFamily:F}}>{d.skills.length} skills added · type to add more</div>}
+    </div>
+    <div style={{marginBottom:20}}>
+      <FL required>Overall seniority level</FL>
+      <RG options={['Entry — building foundational skills (0–2 yrs)','Mid-level — solid independent contributor (3–5 yrs)','Senior — deep expertise, sometimes leads others (6–10 yrs)','Lead / Principal — sets direction, mentors others (10+ yrs)','Executive — organizational leadership']} value={d.seniority} onChange={v=>set(x=>({...x,seniority:v}))}/>
+    </div>
+    <Div label="Languages"/>
+    {d.languages.map((lang,i)=><div key={i} style={{display:'grid',gridTemplateColumns:'1fr 1fr auto',gap:8,marginBottom:8,alignItems:'end'}}>
+      <div><FL>Language</FL><AI value={lang.language} onChange={v=>set(x=>({...x,languages:x.languages.map((l,idx)=>idx===i?{...l,language:v}:l)}))} suggestions={LANG_LIST} placeholder="e.g. Spanish"/></div>
+      <div><FL>Proficiency</FL><Sel value={lang.proficiency} onChange={v=>set(x=>({...x,languages:x.languages.map((l,idx)=>idx===i?{...l,proficiency:v}:l)}))} options={LANGUAGE_PROFICIENCY} placeholder="Select level..."/></div>
+      {d.languages.length>1&&<button onClick={()=>set(x=>({...x,languages:x.languages.filter((_,idx)=>idx!==i)}))} style={{background:'none',border:'none',color:C.gray400,fontSize:20,cursor:'pointer',paddingBottom:6}}>×</button>}
+    </div>)}
+    <AddBtn onClick={()=>set(x=>({...x,languages:[...x.languages,{...BL}]}))} label="Add a language"/>
+    <Div label="Projects & portfolio (optional)"/>
+    <p style={{fontSize:13,color:C.gray400,margin:'0 0 12px',fontFamily:F}}>Personal projects, side projects, open source contributions, or notable work samples.</p>
+    {d.projects.map((p,i)=><Block key={i} title={`Project ${i+1}`} onRemove={()=>remP(i)} canRemove={true} accent={C.purple}>
+      <div style={{marginBottom:10}}><FL>Project name</FL><TI value={p.name} onChange={v=>updP(i,'name',v)} placeholder="e.g. OpenBudget, Personal Finance App"/></div>
+      <div style={{marginBottom:10}}><FL>Description</FL><TA value={p.description} onChange={v=>updP(i,'description',v)} placeholder="What did you build? What problem does it solve? What was your role?" rows={3}/></div>
+      <div style={{display:'grid',gridTemplateColumns:'2fr 1fr 1fr',gap:10}}>
+        <div><FL optional>URL</FL><TI value={p.url} onChange={v=>updP(i,'url',v)} placeholder="https://..."/></div>
+        <div><FL>Start year</FL><TI value={p.startYear} onChange={v=>updP(i,'startYear',v)} placeholder="2022"/></div>
+        <div><FL>End year</FL><TI value={p.endYear} onChange={v=>updP(i,'endYear',v)} placeholder="2023 or Present"/></div>
+      </div>
+    </Block>)}
+    <AddBtn onClick={addP} label="Add a project"/>
+    <Div label="Honors, awards & publications (optional)"/>
+    {d.awards.map((a,i)=><div key={i} style={{display:'grid',gridTemplateColumns:'2fr 1fr 1fr auto',gap:8,marginBottom:8,alignItems:'end'}}>
+      <div><FL>Award or honor</FL><TI value={a.name} onChange={v=>set(x=>({...x,awards:x.awards.map((aw,idx)=>idx===i?{...aw,name:v}:aw)}))} placeholder="e.g. Forbes 30 Under 30, Dean's List"/></div>
+      <div><FL>Issuer</FL><TI value={a.issuer} onChange={v=>set(x=>({...x,awards:x.awards.map((aw,idx)=>idx===i?{...aw,issuer:v}:aw)}))} placeholder="e.g. Forbes"/></div>
+      <div><FL>Year</FL><TI value={a.year} onChange={v=>set(x=>({...x,awards:x.awards.map((aw,idx)=>idx===i?{...aw,year:v}:aw)}))} placeholder="2022"/></div>
+      <button onClick={()=>set(x=>({...x,awards:x.awards.filter((_,idx)=>idx!==i)}))} style={{background:'none',border:'none',color:C.gray400,fontSize:20,cursor:'pointer',paddingBottom:6}}>×</button>
+    </div>)}
+    <AddBtn onClick={()=>set(x=>({...x,awards:[...x.awards,{...BAw}]}))} label="Add an award or publication"/>
+  </>;}
+
+// ── Section 6: Job Preferences ───────────────────────────────────────────────
+function S6({d,set}:SecProps){
   const fmtS=(v:number)=>v>=500?'$500k+':`$${v}k`;
   const fmtC=(v:number)=>v>=90?'90+ min':`${v} min`;
   return<>
-    <SLabel c="Section 5"/>
-    <h2 style={{fontSize:22,fontWeight:800,color:C.slate,margin:'0 0 4px',letterSpacing:-0.5,fontFamily:F}}>Job Preferences</h2>
-    <Sub c="Your ranges and non-negotiables. These filter out mismatches before you ever see them."/>
-    <HR/>
-    <QLabel c="Target job titles" req/>
-    <Sub c="Add each title as a tag — press Enter after each one."/>
-    <TagInput values={d.targetTitles} onChange={v=>set(x=>({...x,targetTitles:v}))} suggestions={TITLE_SUGGESTIONS} placeholder="e.g. Senior Product Manager, Director of Operations..."/>
-    <HR/>
-    <QLabel c={<>Ideal salary <span style={{fontSize:12,fontWeight:400,color:C.gray400}}>(base pay)</span></>} req/>
-    <Sub c="The number you'd be excited about."/>
-    <Slider value={d.idealSalary} onChange={v=>set(x=>({...x,idealSalary:v}))} min={30} max={500} step={5} format={fmtS}/>
-    <div style={{marginTop:24}}>
-      <QLabel c={<>Minimum acceptable salary <span style={{fontSize:12,fontWeight:400,color:C.gray400}}>(base pay)</span></>} req/>
-      <Sub c="Your floor — we won't show you anything below this."/>
-      <Slider value={d.minSalary} onChange={v=>set(x=>({...x,minSalary:Math.min(v,d.idealSalary)}))} min={30} max={500} step={5} format={fmtS}/>
+    <ST section="Section 6 of 9" title="Job Preferences & Critical Needs" sub="Your ranges and non-negotiables. These automatically filter out roles before you ever see them — so be honest."/>
+    <Div/>
+    <div style={{marginBottom:20}}>
+      <FL required hint="Add each title as a tag — press Enter after each one.">Target job titles</FL>
+      <TagInput values={d.targetTitles} onChange={v=>set(x=>({...x,targetTitles:v}))} suggestions={TITLE_SUGGESTIONS} placeholder="e.g. Senior Product Manager, Director of Operations..."/>
     </div>
-    <HR/>
-    <QLabel c="Remote work preference" req/>
-    <Radio options={['Remote only — I will not commute','Strongly prefer remote, open to occasional on-site','Hybrid — mix of remote and office is ideal','Flexible — whatever the role requires','On-site preferred']} value={d.remotePreference} onChange={v=>set(x=>({...x,remotePreference:v}))}/>
-    {d.remotePreference&&!d.remotePreference.includes('Remote only')&&<div style={{marginTop:18}}>
-      <QLabel c="Maximum one-way commute time"/>
-      <Slider value={d.maxCommute} onChange={v=>set(x=>({...x,maxCommute:v}))} min={10} max={90} step={5} format={fmtC}/>
-    </div>}
-    <HR/>
-    <QLabel c="Employment type" req/>
-    <Pills options={EMPLOYMENT_TYPES} values={d.employmentType} onChange={v=>set(x=>({...x,employmentType:v}))}/>
-    <HR/>
-    <QLabel c="When can you start?" req/>
-    <Radio options={['Immediately (within 2 weeks)','Within 1 month','1–3 months','3–6 months','Exploring — no fixed timeline']} value={d.availability} onChange={v=>set(x=>({...x,availability:v}))}/>
-    <HR/>
-    <QLabel c="Open to relocation?"/>
-    <Radio options={['No — staying where I am','Yes — anywhere','Yes — specific regions only']} value={d.relocation} onChange={v=>set(x=>({...x,relocation:v}))}/>
-    {d.relocation==='Yes — specific regions only'&&<div style={{marginTop:10}}><FInput value={d.relocationRegions} onChange={v=>set(x=>({...x,relocationRegions:v}))} placeholder="e.g. Southeast US, New York metro, Pacific Northwest"/></div>}
-    <HR/>
-    <QLabel c="Willing to travel?"/>
-    <Radio options={TRAVEL_LEVELS} value={d.travel} onChange={v=>set(x=>({...x,travel:v}))}/>
-    <HR/>
-    <QLabel c="Preferred company size"/>
-    <Pills options={['Startup (1–50)','Small (51–200)','Mid-size (201–1,000)','Large (1,001–10,000)','Enterprise (10,000+)','No preference']} values={d.companySize} onChange={v=>set(x=>({...x,companySize:v}))}/>
-    <HR/>
-    <QLabel c="Target industries"/>
-    <Sub c="Leave blank to stay open to all."/>
-    <MultiDropdown options={INDUSTRIES} values={d.targetIndustries} onChange={v=>set(x=>({...x,targetIndustries:v}))} placeholder="Search and select..."/>
-    {d.targetIndustries.length>0&&<div style={{fontSize:12,color:C.gray400,marginTop:8,fontFamily:F}}>{d.targetIndustries.length} selected</div>}
+    <Div label="Salary"/>
+    <div style={{marginBottom:16}}>
+      <FL required hint="The number you'd be thrilled to accept. Not your floor.">Ideal salary (base pay only)</FL>
+      <Slider value={d.idealSalary} onChange={v=>set(x=>({...x,idealSalary:Math.max(v,x.minSalary)}))} min={30} max={500} step={5} format={fmtS}/>
+    </div>
+    <div style={{marginBottom:20}}>
+      <FL required hint="Your absolute floor. We will not show you anything below this.">Minimum acceptable salary (base pay only)</FL>
+      <Slider value={d.minSalary} onChange={v=>set(x=>({...x,minSalary:Math.min(v,x.idealSalary)}))} min={30} max={500} step={5} format={fmtS}/>
+      {d.idealSalary-d.minSalary>0&&<div style={{fontSize:12,color:C.gray400,marginTop:6,fontFamily:F}}>Acceptable range: {fmtS(d.minSalary)} – {fmtS(d.idealSalary)}</div>}
+    </div>
+    <Div label="Location & remote"/>
+    <div style={{marginBottom:16}}><FL required>Remote work preference</FL><RG options={['Remote only — I will not commute','Strongly prefer remote, open to occasional on-site','Hybrid — mix of remote and office is ideal','Flexible — whatever the role requires','On-site preferred']} value={d.remotePreference} onChange={v=>set(x=>({...x,remotePreference:v}))}/></div>
+    {!d.remotePreference.includes('Remote only')&&d.remotePreference&&<div style={{marginBottom:16}}><FL hint="Based on your ZIP code, we filter roles by drive/transit time.">Maximum one-way commute you&apos;d accept</FL><Slider value={d.maxCommute} onChange={v=>set(x=>({...x,maxCommute:v}))} min={10} max={90} step={5} format={fmtC}/></div>}
+    <div style={{marginBottom:16}}><FL>Open to relocation?</FL><RG options={['No — staying where I am','Yes — anywhere','Yes — specific regions only']} value={d.relocation} onChange={v=>set(x=>({...x,relocation:v}))}/>{d.relocation?.includes('specific regions')&&<div style={{marginTop:8}}><TI value={d.relocationRegions} onChange={v=>set(x=>({...x,relocationRegions:v}))} placeholder="e.g. Southeast US, New York metro, Pacific Northwest"/></div>}</div>
+    <Div label="Role type & timing"/>
+    <div style={{marginBottom:16}}><FL required>Employment type</FL><CG options={EMPLOYMENT_TYPES} values={d.employmentType} onChange={v=>set(x=>({...x,employmentType:v}))} columns={2}/></div>
+    <div style={{marginBottom:16}}><FL required>When are you available to start?</FL><RG options={['Immediately (within 2 weeks)','Within 1 month','1–3 months','3–6 months','Exploring — no fixed timeline']} value={d.availability} onChange={v=>set(x=>({...x,availability:v}))}/></div>
+    <div style={{marginBottom:16}}><FL>Willing to travel for work?</FL><RG options={TRAVEL_LEVELS} value={d.travel} onChange={v=>set(x=>({...x,travel:v}))}/></div>
+    <Div label="Company preferences"/>
+    <div style={{marginBottom:16}}><FL>Preferred company size</FL><CG options={['Startup (1–50)','Small (51–200)','Mid-size (201–1,000)','Large (1,001–10,000)','Enterprise (10,000+)','No preference']} values={d.companySize} onChange={v=>set(x=>({...x,companySize:v}))} columns={2}/></div>
+    <div style={{marginBottom:16}}>
+      <FL optional>Industries you&apos;d like to work in</FL>
+      <p style={{fontSize:13,color:C.gray400,margin:'0 0 8px',fontFamily:F}}>Leave blank to stay open to all.</p>
+      <MD options={INDUSTRIES} values={d.targetIndustries} onChange={v=>set(x=>({...x,targetIndustries:v}))} placeholder="Search and select industries..."/>
+    </div>
   </>;}
 
-function S6({d,set}:SecProps){return<>
-  <SLabel c="Section 6"/>
-  <h2 style={{fontSize:22,fontWeight:800,color:C.slate,margin:'0 0 4px',letterSpacing:-0.5,fontFamily:F}}>Work Style & Culture</h2>
-  <Sub c="Matched directly against how companies describe themselves. The more honest, the better your matches."/>
-  <HR/>
-  <QLabel c="What kind of culture are you looking for?" req/>
-  <Sub c="These exact descriptors are what companies use to describe their teams."/>
-  <Pills options={CULTURE_DESCRIPTORS} values={d.targetCulture} onChange={v=>set(x=>({...x,targetCulture:v}))}/>
-  <HR/>
-  <QLabel c="Preferred management style" req/>
-  <Radio options={MGMT_STYLES} value={d.mgmtStyle} onChange={v=>set(x=>({...x,mgmtStyle:v}))}/>
-  <HR/>
-  <QLabel c="How do you prefer to receive feedback?" req/>
-  <Radio options={['Real-time — as I go','Regular check-ins (weekly or bi-weekly)','Formal periodic reviews (quarterly)','Self-directed — I ask when I need it']} value={d.feedbackStyle} onChange={v=>set(x=>({...x,feedbackStyle:v}))}/>
-  <HR/>
-  <QLabel c={<>What motivates you most? <span style={{fontSize:12,fontWeight:400,color:C.gray400}}>(pick up to 3)</span></>}/>
-  <Pills options={['Meaningful impact / mission','Career growth & advancement','Compensation & financial rewards','Learning new skills','Creative freedom','Team & culture','Flexibility & autonomy','Recognition & visibility','Stability & security']} values={d.motivators} onChange={v=>set(x=>({...x,motivators:v}))} max={3}/>
-  <div style={{fontSize:12,color:C.gray400,marginTop:8,fontFamily:F}}>{d.motivators.length}/3 selected</div>
+// ── Section 7: Work Style & Culture ──────────────────────────────────────────
+function S7({d,set}:SecProps){return<>
+  <ST section="Section 7 of 9" title="Work Style & Culture" sub="These answers are matched directly against how companies describe themselves. The more honest you are, the better your matches."/>
+  <Div/>
+  <div style={{marginBottom:16}}><FL required hint="These exact descriptors are what companies use to describe their culture — overlap = culture match score.">What kind of culture are you looking for?</FL><CG options={CULTURE_DESCRIPTORS} values={d.targetCulture} onChange={v=>set(x=>({...x,targetCulture:v}))} columns={2}/></div>
+  <Div/>
+  <div style={{marginBottom:16}}><FL required>Preferred management style from your direct manager</FL><RG options={MGMT_STYLES} value={d.mgmtStyle} onChange={v=>set(x=>({...x,mgmtStyle:v}))}/></div>
+  <Div/>
+  <div style={{marginBottom:16}}><FL required>How do you prefer to receive feedback?</FL><RG options={['Real-time — as I go','Regular check-ins (weekly or bi-weekly)','Formal periodic reviews (quarterly)','Self-directed — I ask when I need it']} value={d.feedbackStyle} onChange={v=>set(x=>({...x,feedbackStyle:v}))}/></div>
+  <Div/>
+  <div style={{marginBottom:16}}>
+    <FL hint="Pick up to 3.">What motivates you most at work?</FL>
+    <CG options={['Meaningful impact / mission','Career growth & advancement','Compensation & financial rewards','Learning new skills','Creative freedom','Team & culture','Flexibility & autonomy','Recognition & visibility','Stability & security','Ownership & autonomy']} values={d.motivators} onChange={v=>set(x=>({...x,motivators:v}))} max={3} columns={2}/>
+    <div style={{fontSize:11,color:C.gray400,marginTop:6,fontFamily:F}}>{d.motivators.length}/3 selected</div>
+  </div>
+  <Div/>
+  <div style={{marginBottom:16}}><FL optional>Industries you&apos;ve worked in</FL><MD options={INDUSTRIES} values={d.industries} onChange={v=>set(x=>({...x,industries:v}))} placeholder="Search and select industries..."/></div>
 </>;}
 
-function S7({d,set}:SecProps){return<>
-  <SLabel c="Section 7"/>
-  <h2 style={{fontSize:22,fontWeight:800,color:C.slate,margin:'0 0 4px',letterSpacing:-0.5,fontFamily:F}}>Personality Profile</h2>
-  <Sub c="Matched against what employers describe for their roles. No right or wrong answers."/>
-  <HR/>
-  <div style={{background:C.tealDim,border:`1px solid ${C.tealBorder}`,borderRadius:9,padding:'12px 16px',marginBottom:20}}>
-    <p style={{fontSize:13,color:C.teal,fontWeight:600,margin:0,fontFamily:F}}>Rate yourself 1–5. 1 = strongly left description, 5 = strongly right, 3 = balanced.</p>
+// ── Section 8: Personality ────────────────────────────────────────────────────
+function S8({d,set}:SecProps){return<>
+  <ST section="Section 8 of 9" title="Personality & Behavioral Profile" sub="Our workplace-calibrated personality assessment. No right or wrong answers — just be honest."/>
+  <Div/>
+  <div style={{background:C.tealDim,border:`1px solid ${C.tealBorder}`,borderRadius:10,padding:'14px 16px',marginBottom:24}}>
+    <p style={{fontSize:13,color:C.teal,fontWeight:600,margin:0,fontFamily:F}}>Rate yourself 1–5 on each scale. 1 = strongly left, 5 = strongly right, 3 = balanced. Your scores are compared against what employers say their role requires.</p>
   </div>
   {PERSONALITY_DIMS_SEEKER.map(q=><ScaleQ key={q.id} question={q.q} low={q.low} high={q.high} value={d.personality[q.id]} onChange={v=>set(x=>({...x,personality:{...x.personality,[q.id]:v}}))}/>)}
+  <Div/>
+  <div style={{marginBottom:16}}>
+    <FL>Communication style</FL>
+    <RG options={['Direct and concise — I say exactly what I mean','Diplomatic — I\'m very mindful of how things land','Expressive — I bring energy and enthusiasm to everything','Analytical — I lead with data, evidence, and logic']} value={d.commStyle} onChange={v=>set(x=>({...x,commStyle:v}))}/>
+  </div>
+  <Div/>
+  <div>
+    <FL>When you make a mistake at work, you typically...</FL>
+    <RG options={['Own it immediately, fix it, and move on without dwelling','Analyze carefully what went wrong before moving forward','Take it hard personally but use it as fuel to improve','Focus energy on prevention systems so it doesn\'t happen again']} value={d.mistakeStyle} onChange={v=>set(x=>({...x,mistakeStyle:v}))}/>
+  </div>
 </>;}
 
-function S8({d,set}:SecProps){return<>
-  <SLabel c="Section 8"/>
-  <h2 style={{fontSize:22,fontWeight:800,color:C.slate,margin:'0 0 4px',letterSpacing:-0.5,fontFamily:F}}>Career Goals</h2>
-  <Sub c="Understanding where you're headed helps us match you to roles that move you forward."/>
-  <HR/>
-  <QLabel c="Primary goal right now" req/>
-  <Radio options={['Find a better-paying role','Advance to a more senior position','Switch industries or functions','Find better work-life balance','Return to work after a break','Find more stability or security','Find more meaningful / mission-driven work','Still exploring — not sure yet']} value={d.primaryGoal} onChange={v=>set(x=>({...x,primaryGoal:v}))}/>
-  <HR/>
-  <QLabel c="Where do you see yourself in 3–5 years?"/>
-  <Radio options={['In a leadership or management role','Deep subject-matter expert / individual contributor','Running my own business or freelancing','Still growing in my current function','Not sure yet — exploring']} value={d.fiveYear} onChange={v=>set(x=>({...x,fiveYear:v}))}/>
-  <HR/>
-  <QLabel c="How actively are you searching right now?"/>
-  <Radio options={['Actively — I want to move fast','Open to the right opportunity — not in a rush','Passively exploring — not actively applying','Employed and happy, but curious']} value={d.searchIntensity} onChange={v=>set(x=>({...x,searchIntensity:v}))}/>
-  <HR/>
-  <QLabel c="What would make you stay at your current job?"/>
-  <Pills options={["Significant salary increase","Promotion or title change","More flexibility / remote options","Better management or culture","Nothing — I'm ready to leave","Not applicable"]} values={d.stayReasons} onChange={v=>set(x=>({...x,stayReasons:v}))}/>
-  <HR/>
-  <QLabel c={<>Anything else you'd like employers to know? <span style={{fontSize:12,fontWeight:400,color:C.gray400}}>(optional)</span></>}/>
-  <Sub c="Your personal note — the human part a resume never captures."/>
-  <FTA value={d.personalNote} onChange={v=>set(x=>({...x,personalNote:v}))} placeholder="e.g. Relocating to Austin in Q3. Looking for a company that values autonomy..." rows={4}/>
+// ── Section 9: Goals & Intentions ────────────────────────────────────────────
+function S9({d,set}:SecProps){return<>
+  <ST section="Section 9 of 9" title="Career Goals & Intentions" sub="Understanding where you're headed helps us find roles that are a genuine step forward — not lateral moves you'll regret."/>
+  <Div/>
+  <div style={{marginBottom:16}}><FL required>What&apos;s your primary goal right now?</FL><RG options={['Find a significantly better-paying role','Advance to a more senior position','Switch industries or functions entirely','Find better work-life balance / less demanding pace','Return to work after a career break','Find more stability and job security','Find more meaningful or mission-driven work','Start something of my own — exploring options','Still figuring it out — open to conversations']} value={d.primaryGoal} onChange={v=>set(x=>({...x,primaryGoal:v}))}/></div>
+  <Div/>
+  <div style={{marginBottom:16}}><FL>Where do you see yourself in 3–5 years?</FL><RG options={['In a leadership or people management role','A deep subject-matter expert / senior individual contributor','Running my own business or freelancing full-time','Still growing within my current function and domain','I genuinely don\'t know yet — I\'m keeping options open']} value={d.fiveYear} onChange={v=>set(x=>({...x,fiveYear:v}))}/></div>
+  <Div/>
+  <div style={{marginBottom:16}}><FL>How actively are you searching right now?</FL><RG options={['Actively — I want to move fast and am interviewing now','Open to the right opportunity — not in a rush','Passively exploring — not actively applying anywhere','Happily employed but curious what\'s out there']} value={d.searchIntensity} onChange={v=>set(x=>({...x,searchIntensity:v}))}/></div>
+  <Div/>
+  <div style={{marginBottom:16}}><FL>What would it take for you to stay at your current job? (if applicable)</FL><CG options={['Significant salary increase (20%+)','Promotion or meaningful title change','More remote flexibility','Better management or cultural changes','Nothing — I am ready to leave regardless','Not applicable (currently unemployed or in school)']} values={d.stayReasons} onChange={v=>set(x=>({...x,stayReasons:v}))} columns={2}/></div>
+  <Div/>
+  <div style={{marginBottom:16}}><FL optional>How did you hear about Matcht?</FL><Sel value={d.referralSource} onChange={v=>set(x=>({...x,referralSource:v}))} options={['Friend or colleague referral','LinkedIn','Google search','Instagram / TikTok / social media','Reddit','Newsletter or blog','News article','App store','Other']}/></div>
+  <Div/>
+  <div style={{marginBottom:16}}>
+    <FL optional hint="This never appears to recruiters — it's your personal context for us.">Anything else we should know?</FL>
+    <TA value={d.personalNote} onChange={v=>set(x=>({...x,personalNote:v}))} placeholder="e.g. I'm relocating to Austin in Q3 2026. I'm only looking at FinTech roles. My portfolio is at..." rows={4}/>
+  </div>
 </>;}
 
+// ── Review ────────────────────────────────────────────────────────────────────
 function ReviewScreen({data}:{data:SurveyData}){
-  const fmt=(v:number)=>v>=500?'$500k+':`$${v}k`;
-  const j=data.jobs[0];
-  const rows:[string,string][]=[
-    ['Name',`${data.firstName} ${data.lastName}`.trim()],
-    ['Location',data.location],
-    ['Work auth',data.workAuth],
-    ['Most recent role',j?`${j.title} at ${j.company}`:''],
-    ['Education',data.degrees[0]?.level??''],
-    ['Skills',data.skills.length?`${data.skills.length} added — ${data.skills.slice(0,3).join(', ')}${data.skills.length>3?'...':''}`:'-'],
-    ['Target titles',data.targetTitles.join(', ')||'-'],
-    ['Ideal salary',data.idealSalary?fmt(data.idealSalary):'-'],
-    ['Min salary',data.minSalary?fmt(data.minSalary):'-'],
-    ['Remote pref',data.remotePreference||'-'],
-    ['Availability',data.availability||'-'],
-    ['Culture',data.targetCulture.slice(0,3).join(', ')||'-'],
-    ['Mgmt style',data.mgmtStyle||'-'],
-    ['Primary goal',data.primaryGoal||'-'],
-    ['Search status',data.searchIntensity||'-'],
+  const fmtS=(v:number)=>v>=500?'$500k+':`$${v}k`;
+  const sections=[
+    {title:'Contact & Identity',items:[['Name',`${data.firstName} ${data.lastName}`.trim()],['Location',data.location],['Headline',data.headline],['Work authorization',data.workAuth]] as [string,string][]},
+    {title:'Education',items:data.degrees?.filter(d=>d.level).map(d=>[d.level,d.university?`${d.university}${d.gradYear?`, ${d.gradYear}`:''}`:d.gradYear||'']) as [string,string][]},
+    {title:'Work History',items:data.jobs?.filter(j=>j.company).map(j=>[j.title,`${j.company}${j.current?' (current)':''}`]) as [string,string][]},
+    {title:'Skills',items:[['Total skills',`${data.skills?.length||0} added`],['Top skills',data.skills?.slice(0,5).join(', ')||''],['Seniority',data.seniority]] as [string,string][]},
+    {title:'Job Preferences',items:[['Target titles',data.targetTitles?.slice(0,3).join(', ')],['Ideal salary',data.idealSalary?fmtS(data.idealSalary):''],['Minimum salary',data.minSalary?fmtS(data.minSalary):''],['Remote preference',data.remotePreference],['Availability',data.availability]] as [string,string][]},
+    {title:'Work Style',items:[['Culture',data.targetCulture?.slice(0,3).join(', ')],['Mgmt style',data.mgmtStyle],['Motivators',data.motivators?.slice(0,3).join(', ')]] as [string,string][]},
+    {title:'Goals',items:[['Primary goal',data.primaryGoal],['Search status',data.searchIntensity]] as [string,string][]},
   ];
   return<>
-    <SLabel c="Review"/>
-    <h2 style={{fontSize:22,fontWeight:800,color:C.slate,margin:'0 0 4px',letterSpacing:-0.5,fontFamily:F}}>Review your profile</h2>
-    <Sub c="Once submitted, your profile goes live and matching begins immediately. You can edit anytime."/>
-    <HR/>
-    {rows.filter(([,v])=>v&&v!=='-').map(([l,v])=>(
-      <div key={l} style={{display:'flex',borderBottom:`1px solid ${C.border}`,padding:'11px 0',gap:12}}>
-        <span style={{fontSize:13,color:C.gray600,width:130,flexShrink:0,fontFamily:F}}>{l}</span>
-        <span style={{fontSize:13,color:C.slate,fontWeight:600,fontFamily:F,lineHeight:1.4}}>{v}</span>
-      </div>
-    ))}
-    <div style={{marginTop:24,background:C.tealDim,border:`1px solid ${C.tealBorder}`,borderRadius:9,padding:'14px 16px'}}>
-      <p style={{fontSize:13,color:C.teal,fontWeight:600,margin:0,fontFamily:F}}>✓ Your profile replaces your resume. We'll notify you the moment a role matches your criteria.</p>
+    <ST section="Final step" title="Review your profile" sub="Check everything looks right. Once you submit, your profile goes live and we start matching you immediately. You can edit anything at any time."/>
+    <Div/>
+    {sections.map(s=>s.items?.some(([,v])=>v)&&<div key={s.title} style={{marginBottom:20}}>
+      <div style={{fontSize:12,fontWeight:700,color:C.teal,textTransform:'uppercase',letterSpacing:1,marginBottom:8,fontFamily:F}}>{s.title}</div>
+      {s.items?.filter(([,v])=>v).map(([l,v])=><div key={l} style={{display:'flex',borderBottom:`1px solid ${C.border}`,padding:'9px 0',gap:12}}>
+        <span style={{fontSize:13,color:C.gray600,width:140,flexShrink:0,fontFamily:F}}>{l}</span>
+        <span style={{fontSize:13,color:C.slate,fontWeight:500,fontFamily:F,lineHeight:1.4}}>{v}</span>
+      </div>)}
+    </div>)}
+    <div style={{marginTop:20,background:C.tealDim,border:`1px solid ${C.tealBorder}`,borderRadius:10,padding:'16px 18px'}}>
+      <p style={{fontSize:14,color:C.teal,fontWeight:600,margin:0,fontFamily:F}}>✓ Your Matcht profile is your new resume. It works for you 24/7 — no more applying blind, no more filling out forms from scratch.</p>
     </div>
-  </>;}
+  </>;
+}
 
 const SECTIONS=[
-  {label:'Basic Info',  Comp:S1},{label:'Education',    Comp:S2},{label:'Work History', Comp:S3},
-  {label:'Skills',      Comp:S4},{label:'Preferences',  Comp:S5},{label:'Work Style',   Comp:S6},
-  {label:'Personality', Comp:S7},{label:'Goals',        Comp:S8},
+  {label:'Basic Info',Comp:S1},{label:'Summary',Comp:S2},{label:'Education',Comp:S3},
+  {label:'Work History',Comp:S4},{label:'Skills',Comp:S5},{label:'Preferences',Comp:S6},
+  {label:'Work Style',Comp:S7},{label:'Personality',Comp:S8},{label:'Goals',Comp:S9},
 ];
 
 function deriveExpYears(jobs:WorkJob[]):number{
-  let total=0;
-  for(const j of jobs){
-    const pd=(s:string)=>{const[m,y]=s.split('/').map(Number);return isNaN(y)?null:new Date(y,(m||1)-1);};
-    const s=pd(j.startDate);
-    const e=j.current?new Date():pd(j.endDate);
-    if(s&&e&&e>s)total+=(e.getTime()-s.getTime())/(1000*60*60*24*365.25);
-  }
-  return Math.round(total)||0;
+  const mos=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const now=new Date();
+  return Math.round(jobs.reduce((acc,j)=>{
+    const sy=j.startYear?parseInt(j.startYear):NaN;
+    const sm=j.startMonth?mos.indexOf(j.startMonth):0;
+    const ey=j.current?now.getFullYear():(j.endYear?parseInt(j.endYear):NaN);
+    const em=j.current?now.getMonth():(j.endMonth?mos.indexOf(j.endMonth):11);
+    if(isNaN(sy)||isNaN(ey))return acc;
+    const s=new Date(sy,sm);const e=new Date(ey,em);
+    return e>s?acc+(e.getTime()-s.getTime())/(1000*60*60*24*365.25):acc;
+  },0))||0;
 }
 
-// ── Page ──────────────────────────────────────────────────────────────────
+function migrateJob(raw:Record<string,unknown>):WorkJob{
+  if(typeof raw.startYear==='string'&&raw.startYear)return raw as unknown as WorkJob;
+  const mos=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const pd=(s:string)=>{const p=(s||'').split('/');if(p.length===2){const m=parseInt(p[0]);return{month:mos[m-1]||'',year:p[1]};}return{month:'',year:''};};
+  const st=pd(String(raw.startDate||''));const en=pd(String(raw.endDate||''));
+  return{company:String(raw.company||''),title:String(raw.title||''),location:'',
+    startMonth:st.month,startYear:st.year,endMonth:en.month,endYear:en.year,
+    current:Boolean(raw.current),employmentType:'',
+    description:String(raw.responsibilities||''),
+    accomplishments:[String(raw.accomplishments||''),'',''],reasonForLeaving:''};
+}
+
+// ── Page ──────────────────────────────────────────────────────────────────────
 export default function ProfileSurvey(){
   const {user,profile,loading,refreshProfile}=useUser();
   const router=useRouter();
   const supabase=useMemo(()=>createClient(),[]);
 
-  // null = not yet determined; avoids flashing survey before resume screen decision
   const [showResume,setShowResume]=useState<boolean|null>(null);
-  const [step,setStep]=useState(0);
+  const [step,setStep]=useState(1);
   const [data,setData]=useState<SurveyData>(INIT);
   const [saving,setSaving]=useState(false);
   const [saveError,setSaveError]=useState('');
@@ -515,53 +718,85 @@ export default function ProfileSurvey(){
   const [isEdit,setIsEdit]=useState(false);
   const [autoSaved,setAutoSaved]=useState(false);
   const total=SECTIONS.length;
-  const isReview=step===total;
+  const isReview=step>total;
 
   // Pre-fill from DB + restore localStorage draft
   useEffect(()=>{
     if(loading)return;
-    // loading finished but profile still null — new user whose row may not exist yet; show resume screen
     if(!profile){setShowResume(true);return;}
     setIsEdit(!!profile.profile_complete);
     setShowResume(!profile.profile_complete);
     const fp:SurveyData={
       firstName:profile.first_name??profile.name?.split(' ')[0]??'',
-      lastName: profile.last_name??profile.name?.split(' ').slice(1).join(' ')??'',
+      lastName:profile.last_name??profile.name?.split(' ').slice(1).join(' ')??'',
       email:profile.email??'',phone:profile.phone??'',location:profile.location??'',
-      zip:profile.zip??'',workAuth:profile.work_auth??'',eeoc:(profile.eeoc as string[])??[],
-      degrees:(profile.degrees as Degree[])??[{...BLANK_DEGREE}],certs:profile.certs??'',
-      jobs:(profile.jobs_history as WorkJob[])??[{...BLANK_JOB}],gaps:profile.gaps??'',empStatus:profile.emp_status??'',
-      skills:(profile.skills as string[])??[],seniority:profile.seniority??'',industries:(profile.industries as string[])??[],
-      targetTitles:Array.isArray(profile.target_titles)?(profile.target_titles as string[]):(profile.target_titles?[(profile.target_titles as string)]:[]),
+      zip:profile.zip??'',
+      headline:profile.headline??'',linkedin:profile.linkedin??'',
+      website:profile.website??'',otherLink:profile.other_link??'',
+      workAuth:profile.work_auth??'',
+      gender:profile.gender??'',race:profile.race??'',veteran:profile.veteran??'',disability:profile.disability??'',
+      summary:profile.summary??'',
+      accomplishments:Array.isArray(profile.accomplishments)&&(profile.accomplishments as string[]).length===3
+        ?(profile.accomplishments as string[])
+        :['','',''],
+      degrees:Array.isArray(profile.degrees)&&(profile.degrees as Record<string,unknown>[]).length>0
+        ?(profile.degrees as Record<string,unknown>[]).map(d=>({level:String(d.level||''),field:String(d.field||''),university:String(d.university||''),gradYear:String(d.gradYear||''),current:Boolean(d.current),gpa:String(d.gpa||''),activities:String(d.activities||'')}))
+        :[{...BD}],
+      certifications:Array.isArray(profile.certifications)
+        ?(profile.certifications as Record<string,unknown>[]).map(c=>({name:String(c.name||''),issuer:String(c.issuer||''),date:String(c.date||''),expiry:String(c.expiry||''),credentialId:String(c.credentialId||'')}))
+        :[],
+      testScores:(profile.test_scores as Record<string,string>)??{},
+      jobs:Array.isArray(profile.jobs_history)&&(profile.jobs_history as Record<string,unknown>[]).length>0
+        ?(profile.jobs_history as Record<string,unknown>[]).map(migrateJob)
+        :[{...BJ}],
+      volunteer:Array.isArray(profile.volunteer)
+        ?(profile.volunteer as Record<string,unknown>[]).map(v=>({org:String(v.org||''),role:String(v.role||''),cause:String(v.cause||''),startYear:String(v.startYear||''),endYear:String(v.endYear||''),current:Boolean(v.current),description:String(v.description||'')}))
+        :[],
+      gaps:profile.gaps??'',empStatus:profile.emp_status??'',
+      skills:Array.isArray(profile.skills)?profile.skills as string[]:[],
+      seniority:profile.seniority??'',
+      languages:Array.isArray(profile.languages)&&(profile.languages as Record<string,string>[]).length>0
+        ?(profile.languages as Record<string,string>[]).map(l=>({language:l.language||'',proficiency:l.proficiency||''}))
+        :[{...BL}],
+      projects:Array.isArray(profile.projects)
+        ?(profile.projects as Record<string,unknown>[]).map(p=>({name:String(p.name||''),description:String(p.description||''),url:String(p.url||''),startYear:String(p.startYear||''),endYear:String(p.endYear||'')}))
+        :[],
+      awards:Array.isArray(profile.awards)
+        ?(profile.awards as Record<string,string>[]).map(a=>({name:a.name||'',issuer:a.issuer||'',year:a.year||''}))
+        :[],
+      targetTitles:Array.isArray(profile.target_titles)?profile.target_titles as string[]:[],
       idealSalary:profile.ideal_salary?Math.round(profile.ideal_salary/1000):(profile.salary_max?Math.round(profile.salary_max/1000):100),
-      minSalary:profile.min_salary?Math.round(profile.min_salary/1000):(profile.salary_min?Math.round(profile.salary_min/1000):80),
+      minSalary:profile.min_salary?Math.round(profile.min_salary/1000):(profile.salary_min?Math.round(profile.salary_min/1000):75),
       remotePreference:profile.remote_preference??'',maxCommute:profile.max_commute??30,
-      employmentType:(profile.employment_type as string[])??[],availability:profile.availability??'',
-      relocation:profile.relocation??'',relocationRegions:profile.relocation_regions??'',travel:profile.travel??'',
-      companySize:(profile.company_size as string[])??[],targetIndustries:(profile.target_industries as string[])??[],
-      targetCulture:(profile.target_culture as string[])??[],mgmtStyle:profile.mgmt_style??'',
-      feedbackStyle:profile.feedback_pref??'',motivators:(profile.motivators as string[])??[],
+      employmentType:Array.isArray(profile.employment_type)?profile.employment_type as string[]:[],
+      availability:profile.availability??'',relocation:profile.relocation??'',
+      relocationRegions:profile.relocation_regions??'',travel:profile.travel??'',
+      companySize:Array.isArray(profile.company_size)?profile.company_size as string[]:[],
+      targetIndustries:Array.isArray(profile.target_industries)?profile.target_industries as string[]:[],
+      targetCulture:Array.isArray(profile.target_culture)?profile.target_culture as string[]:[],
+      mgmtStyle:profile.mgmt_style??'',feedbackStyle:profile.feedback_pref??'',
+      motivators:Array.isArray(profile.motivators)?profile.motivators as string[]:[],
+      industries:Array.isArray(profile.industries)?profile.industries as string[]:[],
       personality:(profile.personality as Record<string,number>)??{},
-      primaryGoal:profile.primary_goal??'',fiveYear:profile.five_year??'',searchIntensity:profile.search_intensity??'',
-      stayReasons:(profile.stay_reasons as string[])??[],personalNote:profile.bio??'',
+      commStyle:profile.comm_style??'',mistakeStyle:profile.mistake_style??'',
+      primaryGoal:profile.primary_goal??'',fiveYear:profile.five_year??'',
+      searchIntensity:profile.search_intensity??'',
+      stayReasons:Array.isArray(profile.stay_reasons)?profile.stay_reasons as string[]:[],
+      referralSource:profile.referral_source??'',personalNote:profile.bio??'',
     };
     if(!profile.profile_complete){
-      try{const s=localStorage.getItem(`matcht_profile_draft_${profile.id}`);if(s){setData(JSON.parse(s));return;}}catch{}
+      try{const s=localStorage.getItem(`matcht_profile_draft_${profile.id}`);if(s){setData(JSON.parse(s) as SurveyData);return;}}catch{}
     }
     setData(fp);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   },[loading,profile?.id]);
 
-  // Auto-save to localStorage (800ms debounce after any data change)
+  // Auto-save to localStorage (800ms debounce)
   useEffect(()=>{
     const uid=profile?.id??user?.id;
     if(!uid)return;
     const t=setTimeout(()=>{
-      try{
-        localStorage.setItem(`matcht_profile_draft_${uid}`,JSON.stringify(data));
-        setAutoSaved(true);
-        setTimeout(()=>setAutoSaved(false),2000);
-      }catch{}
+      try{localStorage.setItem(`matcht_profile_draft_${uid}`,JSON.stringify(data));setAutoSaved(true);setTimeout(()=>setAutoSaved(false),2000);}catch{}
     },800);
     return()=>clearTimeout(t);
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -573,23 +808,31 @@ export default function ProfileSurvey(){
     const uid=profile?.id??user?.id;
     if(!uid)return;
     setSaving(true);setSaveError('');
-
-    const timeoutP=new Promise<never>((_,rej)=>
-      setTimeout(()=>rej(new Error('Save timed out after 10 seconds. Your data is saved locally — check your connection and try again.')),10000)
-    );
-
+    const timeoutP=new Promise<never>((_,rej)=>setTimeout(()=>rej(new Error('Save timed out after 10 seconds. Your data is saved locally — check your connection and try again.')),10000));
     try{
       const totalExp=deriveExpYears(data.jobs)||null;
       const upsertP=supabase.from('profiles').upsert({
         id:uid,
         name:`${data.firstName} ${data.lastName}`.trim(),
         first_name:data.firstName,last_name:data.lastName,
-        phone:data.phone||null,location:data.location||null,
-        zip:data.zip||null,work_auth:data.workAuth||null,eeoc:data.eeoc,
-        degrees:data.degrees,certs:data.certs||null,
+        phone:data.phone||null,location:data.location||null,zip:data.zip||null,
+        work_auth:data.workAuth||null,
+        headline:data.headline||null,linkedin:data.linkedin||null,
+        website:data.website||null,other_link:data.otherLink||null,
+        gender:data.gender||null,race:data.race||null,
+        veteran:data.veteran||null,disability:data.disability||null,
+        summary:data.summary||null,
+        accomplishments:data.accomplishments,
+        degrees:data.degrees,
+        certifications:data.certifications,
+        test_scores:data.testScores,
         jobs_history:data.jobs,title:data.jobs[0]?.title||null,total_exp:totalExp,
+        volunteer:data.volunteer,
         gaps:data.gaps||null,emp_status:data.empStatus||null,
-        skills:data.skills,seniority:data.seniority||null,industries:data.industries,
+        skills:data.skills,seniority:data.seniority||null,
+        languages:data.languages.filter(l=>l.language),
+        projects:data.projects,awards:data.awards,
+        industries:data.industries,
         target_titles:data.targetTitles,
         ideal_salary:data.idealSalary*1000,min_salary:data.minSalary*1000,
         salary_min:data.minSalary*1000,salary_max:data.idealSalary*1000,
@@ -600,16 +843,17 @@ export default function ProfileSurvey(){
         travel:data.travel||null,company_size:data.companySize,
         target_industries:data.targetIndustries,target_culture:data.targetCulture,
         mgmt_style:data.mgmtStyle||null,feedback_pref:data.feedbackStyle||null,
-        motivators:data.motivators,personality:data.personality,
+        motivators:data.motivators,
+        personality:data.personality,
+        comm_style:data.commStyle||null,mistake_style:data.mistakeStyle||null,
         primary_goal:data.primaryGoal||null,five_year:data.fiveYear||null,
         search_intensity:data.searchIntensity||null,stay_reasons:data.stayReasons,
+        referral_source:data.referralSource||null,
         bio:data.personalNote||null,profile_complete:true,
         updated_at:new Date().toISOString(),
       });
-
       const {error}=await Promise.race([upsertP,timeoutP]);
       if(error)throw error;
-
       fetch('/api/match-scores',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({seekerId:uid})}).catch(()=>{});
       if(!profile?.profile_complete){
         fetch('/api/email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'seeker-welcome',seekerId:uid})}).catch(()=>{});
@@ -619,12 +863,9 @@ export default function ProfileSurvey(){
       setDone(true);
     }catch(err:unknown){
       setSaveError((err as Error)?.message||'Save failed. Your answers are saved locally — please try again.');
-    }finally{
-      setSaving(false);
-    }
+    }finally{setSaving(false);}
   }
 
-  // Show loading until showResume is determined
   if(loading||showResume===null){
     return<div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',minHeight:'80vh',fontFamily:F,gap:14}}>
       <div style={{width:28,height:28,borderRadius:6,background:C.teal,display:'flex',alignItems:'center',justifyContent:'center',fontWeight:800,fontSize:12,color:C.white}}>M</div>
@@ -646,73 +887,64 @@ export default function ProfileSurvey(){
 
   if(showResume)return<ResumeUpload onSkip={()=>setShowResume(false)}/>;
 
-  const SecComp=!isReview?SECTIONS[step].Comp:null;
+  const SecComp=!isReview?SECTIONS[step-1]?.Comp:null;
 
   return(
     <div style={{background:C.bg,minHeight:'100vh',fontFamily:F,paddingBottom:100}}>
       <style>{`
-        @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
-        .sc{animation:fadeUp .2s cubic-bezier(.4,0,.2,1)}
         input[type=range]{height:5px;background:${C.gray100};border-radius:3px;outline:none;cursor:pointer}
         input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:20px;height:20px;border-radius:50%;background:${C.teal};cursor:pointer;box-shadow:0 1px 6px rgba(26,140,140,.4)}
         input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;background:${C.teal};cursor:pointer;border:none}
       `}</style>
 
       {/* Sticky header */}
-      <div style={{background:C.white,borderBottom:`1px solid ${C.border}`,padding:'0 24px',height:54,display:'flex',alignItems:'center',justifyContent:'space-between',position:'sticky',top:0,zIndex:100,boxShadow:'0 1px 8px rgba(0,0,0,.04)'}}>
-        <div style={{display:'flex',alignItems:'center',gap:7}}>
-          <div style={{width:24,height:24,borderRadius:5,background:C.teal,display:'flex',alignItems:'center',justifyContent:'center',fontWeight:800,fontSize:10,color:C.white}}>M</div>
-          <span style={{fontWeight:800,fontSize:14,color:C.slate,letterSpacing:-0.3}}>Matcht</span>
-          <span style={{fontSize:11,color:C.gray400}}>/ {isEdit?'Edit Profile':'Your Profile'}</span>
+      <div style={{background:C.white,borderBottom:`1px solid ${C.border}`,padding:'0 24px',height:54,display:'flex',alignItems:'center',justifyContent:'space-between',position:'sticky',top:0,zIndex:100,boxShadow:'0 1px 4px rgba(0,0,0,.04)'}}>
+        <div style={{display:'flex',alignItems:'center',gap:8}}>
+          <div style={{width:28,height:28,borderRadius:6,background:C.teal,display:'flex',alignItems:'center',justifyContent:'center',fontWeight:800,fontSize:12,color:C.white}}>M</div>
+          <span style={{fontWeight:800,fontSize:15,color:C.slate,letterSpacing:-0.3}}>Matcht</span>
+          <span style={{fontSize:12,color:C.gray400,marginLeft:2}}>/ Your Profile</span>
         </div>
-        <div style={{display:'flex',alignItems:'center',gap:12}}>
-          {autoSaved&&<span style={{fontSize:11,color:C.green,fontFamily:F,fontWeight:600,transition:'opacity .3s'}}>✓ Draft saved</span>}
-          <span style={{fontSize:12,color:C.gray600,fontWeight:600}}>{isReview?'Review & submit':`${step+1} / ${total} — ${SECTIONS[step].label}`}</span>
+        <div style={{display:'flex',alignItems:'center',gap:10}}>
+          {autoSaved&&<span style={{fontSize:11,color:C.green,fontWeight:600,fontFamily:F}}>✓ Saved</span>}
+          {saveError&&<span style={{fontSize:11,color:C.amber,fontWeight:600,fontFamily:F}}>⚠ Not saved</span>}
+          <span style={{fontSize:12,color:C.gray600,fontWeight:500,fontFamily:F}}>{isReview?'Review & submit':`${step} of ${total} · ${SECTIONS[step-1]?.label}`}</span>
         </div>
       </div>
 
       {/* Section tab bar */}
-      <div style={{background:C.white,borderBottom:`1px solid ${C.border}`,overflowX:'auto',WebkitOverflowScrolling:'touch' as React.CSSProperties['WebkitOverflowScrolling']}}>
-        <div style={{display:'flex',minWidth:'fit-content',padding:'0 8px'}}>
-          {SECTIONS.map((s,i)=>(
-            <button key={i} onClick={()=>go(i)} style={{padding:'10px 12px',border:'none',background:'none',borderBottom:`2.5px solid ${i===step?C.teal:'transparent'}`,color:i===step?C.teal:i<step?C.green:C.gray400,fontWeight:i===step?700:500,fontSize:12,cursor:'pointer',fontFamily:F,whiteSpace:'nowrap',display:'flex',alignItems:'center',gap:4,transition:'color .15s'}}>
-              {i<step&&<span style={{fontSize:10}}>✓</span>}{s.label}
-            </button>
-          ))}
-          <button onClick={()=>go(total)} style={{padding:'10px 12px',border:'none',background:'none',borderBottom:`2.5px solid ${isReview?C.teal:'transparent'}`,color:isReview?C.teal:C.gray400,fontWeight:isReview?700:500,fontSize:12,cursor:'pointer',fontFamily:F,whiteSpace:'nowrap',transition:'color .15s'}}>Review</button>
+      <div style={{background:C.white,borderBottom:`1px solid ${C.border}`,overflowX:'auto'}}>
+        <div style={{display:'flex',minWidth:'fit-content',padding:'0 12px'}}>
+          {SECTIONS.map((s,i)=>{
+            const n=i+1;const done2=n<step;const active=n===step&&!isReview;
+            return<button key={i} onClick={()=>go(n)} style={{padding:'10px 12px',border:'none',background:'none',borderBottom:`2.5px solid ${active?C.teal:done2?C.green:'transparent'}`,color:active?C.teal:done2?C.green:C.gray400,fontWeight:active?700:500,fontSize:12,cursor:'pointer',fontFamily:F,whiteSpace:'nowrap',display:'flex',alignItems:'center',gap:5,transition:'all .2s'}}>
+              {done2&&<span style={{fontSize:10}}>✓</span>}{s.label}
+            </button>;
+          })}
+          <button onClick={()=>go(total+1)} style={{padding:'10px 12px',border:'none',background:'none',borderBottom:`2.5px solid ${isReview?C.teal:'transparent'}`,color:isReview?C.teal:C.gray400,fontWeight:isReview?700:500,fontSize:12,cursor:'pointer',fontFamily:F,whiteSpace:'nowrap'}}>Review</button>
         </div>
       </div>
 
-      {/* Content area */}
-      <div style={{maxWidth:640,margin:'28px auto 0',padding:'0 16px'}}>
-        <Progress step={step} total={total}/>
+      {/* Content */}
+      <div style={{maxWidth:680,margin:'28px auto 0',padding:'0 16px'}}>
+        <Progress step={step-1} total={total} sections={SECTIONS}/>
+        <Card style={{marginBottom:14}}>
+          {isReview?<ReviewScreen data={data}/>:SecComp?<SecComp d={data} set={setData}/>:null}
+        </Card>
 
-        <div key={step} className="sc" style={{background:C.white,borderRadius:14,border:`1px solid ${C.border}`,padding:'28px 24px',marginBottom:16}}>
-          {isReview?<ReviewScreen data={data}/>:SecComp&&<SecComp d={data} set={setData}/>}
-        </div>
+        {saveError&&<div style={{background:C.amberDim,border:`1px solid ${C.amber}`,borderRadius:9,padding:'12px 16px',marginBottom:12,fontSize:13,color:C.amber,fontFamily:F,fontWeight:600}}>{saveError}</div>}
 
-        {saveError&&(
-          <div style={{padding:'14px 16px',background:'#FDF2F2',border:`1px solid ${C.red}44`,borderRadius:9,marginBottom:12,fontFamily:F,display:'flex',gap:10,alignItems:'flex-start'}}>
-            <span style={{fontSize:18,flexShrink:0}}>⚠</span>
-            <div>
-              <div style={{fontWeight:700,fontSize:13,color:C.red,marginBottom:4}}>Save failed</div>
-              <div style={{fontSize:13,color:C.red,lineHeight:1.5}}>{saveError}</div>
-              <button onClick={submit} disabled={saving} style={{marginTop:10,padding:'7px 16px',borderRadius:7,background:C.red,color:C.white,border:'none',fontWeight:700,fontSize:12,cursor:'pointer',fontFamily:F}}>Try again →</button>
-            </div>
-          </div>
-        )}
-
+        {/* Nav buttons */}
         <div style={{display:'flex',gap:10}}>
-          {step>0&&<button onClick={()=>go(step-1)} style={{flex:1,padding:'13px 0',borderRadius:9,background:C.white,border:`1.5px solid ${C.border}`,color:C.gray600,fontWeight:600,fontSize:14,cursor:'pointer',fontFamily:F}}>← Back</button>}
+          {step>1&&<button onClick={()=>go(step-1)} style={{flex:1,padding:'13px 0',borderRadius:9,background:C.white,border:`1.5px solid ${C.border}`,color:C.gray600,fontWeight:600,fontSize:14,cursor:'pointer',fontFamily:F}}>← Back</button>}
           {!isReview
-            ?<button onClick={()=>go(step+1)} style={{flex:2,padding:'13px 0',borderRadius:9,background:C.teal,color:C.white,border:'none',fontWeight:700,fontSize:15,cursor:'pointer',fontFamily:F,boxShadow:'0 2px 10px rgba(26,140,140,.25)'}}>
-              {step<total-1?'Continue →':'Review my profile →'}
-            </button>
-            :<button onClick={submit} disabled={saving} style={{flex:2,padding:'13px 0',borderRadius:9,background:saving?C.gray400:C.teal,color:C.white,border:'none',fontWeight:700,fontSize:15,cursor:saving?'default':'pointer',fontFamily:F,boxShadow:saving?'none':'0 2px 10px rgba(26,140,140,.25)',transition:'all .2s'}}>
-              {saving?'Saving… (up to 10s)':isEdit?'Save changes →':'Submit & go live →'}
-            </button>}
+            ?<button onClick={()=>go(step+1)} style={{flex:2,padding:'13px 0',borderRadius:9,background:C.teal,color:C.white,border:'none',fontWeight:700,fontSize:15,cursor:'pointer',fontFamily:F,boxShadow:`0 2px 12px ${C.teal}44`}}>
+                {step<total?'Continue →':'Review my profile →'}
+              </button>
+            :<button onClick={submit} disabled={saving} style={{flex:2,padding:'13px 0',borderRadius:9,background:saving?C.gray400:C.teal,color:C.white,border:'none',fontWeight:700,fontSize:15,cursor:saving?'not-allowed':'pointer',fontFamily:F,boxShadow:saving?'none':`0 2px 12px ${C.teal}44`}}>
+                {saving?'Saving…':'Submit & go live →'}
+              </button>}
         </div>
-        <p style={{fontSize:11,color:C.gray400,textAlign:'center',marginTop:10,fontFamily:F,lineHeight:1.4}}>Your data auto-saves as you go. If the save fails, all answers are preserved locally.</p>
+        <p style={{textAlign:'center',fontSize:12,color:C.gray400,marginTop:10,fontFamily:F}}>Your answers auto-save as you go — you won&apos;t lose anything.</p>
       </div>
     </div>
   );
