@@ -505,6 +505,7 @@ export default function ProfileSurvey(){
   const [step,setStep]=useState(0);
   const [data,setData]=useState<SurveyData>(INIT);
   const [saving,setSaving]=useState(false);
+  const [saveError,setSaveError]=useState('');
   const [done,setDone]=useState(false);
   // Track whether the profile was already complete when the page loaded (edit vs first-time)
   const [isEdit,setIsEdit]=useState(false);
@@ -515,7 +516,7 @@ export default function ProfileSurvey(){
   useEffect(()=>{
     if(!profile)return;
     setIsEdit(!!profile.profile_complete);
-    setData({
+    const fromProfile:SurveyData={
       firstName: profile.first_name||profile.name?.split(' ')[0]||'',
       lastName:  profile.last_name||profile.name?.split(' ').slice(1).join(' ')||'',
       email:     profile.email||'',
@@ -573,101 +574,103 @@ export default function ProfileSurvey(){
       otherInterviews: profile.other_interviews||'',
       stayReasons:     profile.stay_reasons||[],
       personalNote:    profile.bio||'',
-    });
+    };
+    if(!profile.profile_complete){
+      try{const saved=localStorage.getItem(`matcht_profile_draft_${profile.id}`);if(saved){setData(JSON.parse(saved));return;}}catch{}
+    }
+    setData(fromProfile);
   },[profile?.id]);
 
-  function go(n:number){setStep(n);window.scrollTo({top:0,behavior:'smooth'});}
+  function go(n:number){
+    const uid=profile?.id??user?.id;
+    if(uid&&n>step){try{localStorage.setItem(`matcht_profile_draft_${uid}`,JSON.stringify(data));}catch{}}
+    setStep(n);window.scrollTo({top:0,behavior:'smooth'});
+  }
 
   async function submit(){
     const uid = profile?.id ?? user?.id;
     if(!uid)return;
     setSaving(true);
+    setSaveError('');
+    try{
+      const {error:upsertErr}=await supabase.from('profiles').upsert({
+        id: uid,
+        name:`${data.firstName} ${data.lastName}`.trim(),
+        first_name:data.firstName,
+        last_name:data.lastName,
+        phone:data.phone||null,
+        location:data.location||null,
+        zip:data.zip||null,
+        work_auth:data.workAuth||null,
+        eeoc:data.eeoc,
+        education:data.education||null,
+        major:data.major||null,
+        university:data.university||null,
+        certs:data.certs||null,
+        enrolled:data.enrolled||null,
+        title:data.currentTitle||null,
+        current_employer:data.currentEmployer||null,
+        total_exp:data.totalExp,
+        field_exp:data.fieldExp,
+        longest_tenure:data.longestTenure,
+        industries:data.industries,
+        direct_reports:data.directReports,
+        managed_projects:data.managedProjects||null,
+        emp_status:data.empStatus||null,
+        gaps:data.gaps||null,
+        soft_skills:data.softSkills,
+        tech_skills:data.techSkills,
+        skills:[...data.softSkills,...data.techSkills],
+        other_skills:data.otherSkills||null,
+        seniority:data.seniority||null,
+        target_titles:data.targetTitles||null,
+        salary_min:data.salaryMin*1000,
+        salary_max:data.salaryMax*1000,
+        salary_label:`$${data.salaryMin}k–$${data.salaryMax}k`,
+        remote_preference:data.remotePreference||null,
+        max_commute:data.maxCommute,
+        employment_type:data.employmentType,
+        availability:data.availability||null,
+        relocation:data.relocation||null,
+        relocation_regions:data.relocationRegions||null,
+        travel:data.travel||null,
+        company_size:data.companySize,
+        target_industries:data.targetIndustries,
+        feedback_pref:data.feedback||null,
+        work_style:data.workStyle||null,
+        pace:data.pace||null,
+        mgmt_style:data.mgmtStyle||null,
+        team_role:data.teamRole||null,
+        env_prefs:data.envPrefs,
+        motivators:data.motivators,
+        target_culture:data.targetCulture,
+        personality:data.personality,
+        comm_style:data.commStyle||null,
+        mistake_style:data.mistakeStyle||null,
+        primary_goal:data.primaryGoal||null,
+        five_year:data.fiveYear||null,
+        search_intensity:data.searchIntensity||null,
+        other_interviews:data.otherInterviews||null,
+        stay_reasons:data.stayReasons,
+        bio:data.personalNote||null,
+        profile_complete:true,
+        updated_at:new Date().toISOString(),
+      });
+      if(upsertErr) throw upsertErr;
 
-    await supabase.from('profiles').upsert({
-      id: uid,
-      // Identity
-      name:`${data.firstName} ${data.lastName}`.trim(),
-      first_name:data.firstName,
-      last_name:data.lastName,
-      phone:data.phone||null,
-      location:data.location||null,
-      zip:data.zip||null,
-      work_auth:data.workAuth||null,
-      eeoc:data.eeoc,
-      // Education
-      education:data.education||null,
-      major:data.major||null,
-      university:data.university||null,
-      certs:data.certs||null,
-      enrolled:data.enrolled||null,
-      // Work history
-      title:data.currentTitle||null,
-      current_employer:data.currentEmployer||null,
-      total_exp:data.totalExp,
-      field_exp:data.fieldExp,
-      longest_tenure:data.longestTenure,
-      industries:data.industries,
-      direct_reports:data.directReports,
-      managed_projects:data.managedProjects||null,
-      emp_status:data.empStatus||null,
-      gaps:data.gaps||null,
-      // Skills
-      soft_skills:data.softSkills,
-      tech_skills:data.techSkills,
-      skills:[...data.softSkills,...data.techSkills], // keep legacy column populated
-      other_skills:data.otherSkills||null,
-      seniority:data.seniority||null,
-      // Job preferences
-      target_titles:data.targetTitles||null,
-      salary_min:data.salaryMin*1000,   // convert $k → full dollars
-      salary_max:data.salaryMax*1000,
-      salary_label:`$${data.salaryMin}k–$${data.salaryMax}k`,
-      remote_preference:data.remotePreference||null,
-      max_commute:data.maxCommute,
-      employment_type:data.employmentType,
-      availability:data.availability||null,
-      relocation:data.relocation||null,
-      relocation_regions:data.relocationRegions||null,
-      travel:data.travel||null,
-      company_size:data.companySize,
-      target_industries:data.targetIndustries,
-      // Work style
-      feedback_pref:data.feedback||null,
-      work_style:data.workStyle||null,
-      pace:data.pace||null,
-      mgmt_style:data.mgmtStyle||null,
-      team_role:data.teamRole||null,
-      env_prefs:data.envPrefs,
-      motivators:data.motivators,
-      target_culture:data.targetCulture,
-      // Personality
-      personality:data.personality,
-      comm_style:data.commStyle||null,
-      mistake_style:data.mistakeStyle||null,
-      // Goals
-      primary_goal:data.primaryGoal||null,
-      five_year:data.fiveYear||null,
-      search_intensity:data.searchIntensity||null,
-      other_interviews:data.otherInterviews||null,
-      stay_reasons:data.stayReasons,
-      bio:data.personalNote||null,
-      // Complete
-      profile_complete:true,
-      updated_at:new Date().toISOString(),
-    });
-
-    // Compute match scores against all active jobs (non-blocking)
-    fetch('/api/match-scores',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({seekerId:uid})});
-
-    // Send welcome + profile-live emails on first completion only
-    if(!profile?.profile_complete){
-      fetch('/api/email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'seeker-welcome',seekerId:uid})});
-      fetch('/api/email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'seeker-profile-live',seekerId:uid})});
+      fetch('/api/match-scores',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({seekerId:uid})});
+      if(!profile?.profile_complete){
+        fetch('/api/email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'seeker-welcome',seekerId:uid})});
+        fetch('/api/email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'seeker-profile-live',seekerId:uid})});
+      }
+      await refreshProfile();
+      try{localStorage.removeItem(`matcht_profile_draft_${uid}`);}catch{}
+      setDone(true);
+    }catch(err:any){
+      setSaveError(err?.message||'Save failed. Your answers are preserved — please try again.');
+    }finally{
+      setSaving(false);
     }
-
-    await refreshProfile();
-    setDone(true);
-    setSaving(false);
   }
 
   if(loading)return<div style={{display:'flex',alignItems:'center',justifyContent:'center',minHeight:'60vh',fontFamily:F,color:C.teal}}>Loading…</div>;
@@ -718,6 +721,7 @@ export default function ProfileSurvey(){
         <div style={{background:C.white,borderRadius:14,border:`1px solid ${C.border}`,padding:'26px 24px',marginBottom:14}}>
           {isReview?<ReviewScreen data={data}/>:SecComp&&<SecComp d={data} set={setData}/>}
         </div>
+        {saveError&&<div style={{color:C.red,fontSize:13,padding:'9px 12px',background:'#FDF2F2',border:`1px solid ${C.red}44`,borderRadius:7,marginBottom:8,fontFamily:F}}>⚠ {saveError}</div>}
         <div style={{display:'flex',gap:9}}>
           {step>0&&<button onClick={()=>go(step-1)} style={{flex:1,padding:'11px 0',borderRadius:8,background:C.white,border:`1.5px solid ${C.border}`,color:C.gray600,fontWeight:600,fontSize:14,cursor:'pointer',fontFamily:F}}>← Back</button>}
           {!isReview
