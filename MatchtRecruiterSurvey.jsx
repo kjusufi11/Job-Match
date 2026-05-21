@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-// ── SHARED CONSTANTS (keep in sync with MatchtSurvey.jsx) ─────────────────────
+// ── SHARED CONSTANTS (keep in sync with matchConstants.js) ───────────────────
 const INDUSTRIES = [
   "Accounting & Tax","Advertising & PR","Agriculture & Farming","Architecture & Design",
   "Automotive","Aviation & Aerospace","Banking & Financial Services","Biotechnology",
@@ -18,69 +18,74 @@ const INDUSTRIES = [
   "Sports & Recreation","Telecommunications","Transportation","Venture Capital & Private Equity",
   "Veterinary & Animal Services","Wellness & Fitness","Other",
 ];
-const SOFT_SKILLS = [
-  "Active listening","Adaptability","Coaching & mentoring","Collaboration & teamwork",
-  "Communication","Conflict resolution","Creativity","Critical thinking","Decision-making",
-  "Emotional intelligence","Leadership","Negotiation","Presentation & public speaking",
-  "Problem-solving","Strategic thinking","Time management",
-];
-const TECH_SKILLS = [
-  "Accounting & financial software","Advanced Excel / Google Sheets","Cloud platforms (AWS, Azure, GCP)",
-  "CRM software (Salesforce, HubSpot)","Data analysis & BI tools (Tableau, Power BI)",
-  "ERP systems (SAP, Oracle)","Figma / Adobe Creative Suite","Google Workspace / Microsoft Office",
-  "Jira / Asana / Monday.com","Legal software (Clio, LexisNexis)","Marketing automation (Marketo, HubSpot)",
-  "Python or R","Recruiting & HRIS tools","Social media management","Software development & coding",
-  "SQL & databases","Video editing & production",
+const SKILL_SUGGESTIONS = [
+  "Active listening","Adaptability","Change management","Coaching","Collaboration",
+  "Communication","Conflict resolution","Creative thinking","Critical thinking",
+  "Cross-functional leadership","Customer empathy","Decision-making","Delegation",
+  "Emotional intelligence","Executive presence","Facilitation","Feedback delivery",
+  "Influencing without authority","Innovation","Leadership","Mentoring","Negotiation",
+  "Organizational skills","Persuasion","Presentation skills","Problem-solving",
+  "Project coordination","Public speaking","Relationship building","Resilience",
+  "Self-management","Strategic thinking","Storytelling","Team building","Time management",
+  "Written communication","Account management","Budget management","Business development",
+  "Business analysis","Client relations","Competitive analysis","Contract negotiation",
+  "Cost reduction","Customer success","Due diligence","Financial modeling","Forecasting",
+  "Go-to-market strategy","Growth strategy","KPI development","Market research",
+  "Operations management","P&L ownership","Process improvement","Product roadmap",
+  "Program management","Project management","Revenue operations","Risk management",
+  "Sales enablement","Stakeholder management","Strategic planning","Vendor management",
+  "A/B testing","Advanced Excel","Agile / Scrum","API integration","AWS","Azure",
+  "Business intelligence","C++","CI/CD","Cloud architecture","CSS","CRM (Salesforce)",
+  "CRM (HubSpot)","Data analysis","Data engineering","Data modeling","Data visualization",
+  "DevOps","Docker","ERP (SAP)","ERP (Oracle)","Figma","Financial reporting","GCP","Git",
+  "Google Analytics","Google Workspace","HTML","Java","JavaScript","Kubernetes",
+  "Machine learning","Marketing automation","Microsoft Office","Mobile development",
+  "MongoDB","MySQL","Natural language processing","Node.js","NoSQL","Paid media",
+  "PostgreSQL","Power BI","Python","R","React","REST APIs","SEO/SEM","Snowflake",
+  "Social media management","SQL","Swift","Tableau","Terraform","TypeScript",
+  "UX research","Video production","Vue.js","WordPress","Accounting (GAAP)","Audit",
+  "Benefits administration","Clinical trials","Compliance","Content strategy","Copywriting",
+  "Digital marketing","Email marketing","HIPAA","Investment analysis","Labor law",
+  "Lean / Six Sigma","Litigation","Logistics coordination","Media buying","Payroll",
+  "Private equity","Real estate transactions","Regulatory affairs","Supply chain",
+  "Tax preparation","Treasury management","Underwriting",
 ];
 const EDUCATION_LEVELS = [
   "No requirement — skills matter more than credentials",
-  "High school diploma / GED","Associate's degree","Bachelor's degree",
-  "Master's degree","MBA","JD / Law degree","MD / Medical degree",
-  "PhD or Doctorate","Vocational / Trade certification",
+  "High school diploma / GED","Some college (no degree)","Associate's degree",
+  "Bachelor's degree","Master's degree","MBA","JD / Law degree","MD / Medical degree",
+  "PhD or Doctorate","Vocational / Trade certification","Bootcamp or professional program",
 ];
-// SAME 10 descriptors as candidate survey — overlap % = culture match score
 const CULTURE_DESCRIPTORS = [
   "Fast-paced & high-energy","Collaborative & team-first","Data-driven & analytical",
   "Creative & experimental","Process-driven & structured","Mission-driven & purpose-led",
   "Performance & results-oriented","Autonomous & self-directed","Transparent & flat hierarchy","Stable & predictable",
 ];
-const EMPLOYMENT_TYPES = [
-  "Full-time (permanent)","Part-time","Contract / Freelance","Contract-to-hire","Internship","Temporary / Seasonal",
-];
-// ALL 12 personality dims — same as candidate survey, different framing
+const EMPLOYMENT_TYPES = ["Full-time (permanent)","Part-time","Contract / Freelance","Contract-to-hire","Internship","Temporary / Seasonal"];
 const PERSONALITY_DIMS = [
-  { id:"EI",          q:"For this role, the ideal candidate in social situations...",    low:"Works best in small groups or 1-on-1",      high:"Thrives in large groups & high-energy settings" },
-  { id:"SN",          q:"For this role, we need someone who relies on...",               low:"Facts, data & proven methods",               high:"Intuition, pattern recognition & future thinking" },
-  { id:"TF",          q:"Day-to-day, this role requires decisions driven by...",         low:"Logic & objective analysis",                 high:"Empathy & people-centered judgment" },
-  { id:"JP",          q:"This role is best suited to someone who prefers work to be...", low:"Planned, structured & decided",              high:"Flexible, open & spontaneous" },
-  { id:"stress",      q:"Under pressure and tight deadlines, this person should...",     low:"Stay calm & methodical",                     high:"Feel energized & move faster" },
-  { id:"conflict",    q:"When disagreements arise, this role requires someone who...",   low:"Manages conflict diplomatically",             high:"Addresses it directly & advocates their view" },
-  { id:"ambiguity",   q:"The level of ambiguity in this role is...",                     low:"Low — clear processes & direction provided", high:"High — must create structure from scratch" },
-  { id:"risk",        q:"The risk tolerance this role requires is...",                   low:"Conservative — proven paths preferred",      high:"Bold — comfortable with high-risk decisions" },
-  { id:"detail",      q:"This role requires someone who is...",                          low:"Big picture — delegates the details",         high:"Detail-oriented — owns everything end-to-end" },
-  { id:"change",      q:"When priorities shift suddenly, this person should...",         low:"Need time to adjust",                        high:"Adapt quickly & see it as opportunity" },
-  { id:"recognition", q:"The team culture around recognition is...",                     low:"Private — individual thank-yous",             high:"Public — celebrates wins openly" },
-  { id:"collab",      q:"Day-to-day, this role is primarily...",                         low:"Independent work with minimal collaboration", high:"Deeply collaborative & team-dependent" },
+  { id:"EI",          q:"For this role, the ideal candidate in social situations...",    low:"Works best in small groups or 1-on-1",       high:"Thrives in large groups & high-energy settings" },
+  { id:"SN",          q:"For this role, we need someone who relies on...",               low:"Facts, data & proven methods",                high:"Intuition, pattern recognition & future thinking" },
+  { id:"TF",          q:"Day-to-day, this role requires decisions driven by...",         low:"Logic & objective analysis",                  high:"Empathy & people-centered judgment" },
+  { id:"JP",          q:"This role is best suited to someone who prefers work to be...", low:"Planned, structured & decided",               high:"Flexible, open & spontaneous" },
+  { id:"stress",      q:"Under pressure and tight deadlines, this person should...",     low:"Stay calm & methodical",                      high:"Feel energized & move faster" },
+  { id:"conflict",    q:"When disagreements arise, this role requires someone who...",   low:"Manages conflict diplomatically",              high:"Addresses it directly & advocates their view" },
+  { id:"ambiguity",   q:"The level of ambiguity in this role is...",                     low:"Low — clear processes & direction provided",  high:"High — must create structure from scratch" },
+  { id:"risk",        q:"The risk tolerance this role requires is...",                   low:"Conservative — proven paths preferred",       high:"Bold — comfortable with high-risk decisions" },
+  { id:"detail",      q:"This role requires someone who is...",                          low:"Big picture — delegates the details",          high:"Detail-oriented — owns everything end-to-end" },
+  { id:"change",      q:"When priorities shift suddenly, this person should...",         low:"Need time to adjust",                         high:"Adapt quickly & see it as opportunity" },
+  { id:"recognition", q:"The team culture around recognition is...",                     low:"Private — individual thank-yous",              high:"Public — celebrates wins openly" },
+  { id:"collab",      q:"Day-to-day, this role is primarily...",                         low:"Independent work with minimal collaboration",  high:"Deeply collaborative & team-dependent" },
 ];
-const MGMT_STYLES = [
-  "Hands-off — sets goals and trusts the team",
-  "Collaborative — involved but not directive",
-  "Structured — clear expectations and regular feedback",
-  "Mentor-focused — invested in growth and development",
-  "Varies — adapts to each person",
-];
-const TRAVEL_LEVELS = [
-  "No travel","Occasional (under 10%)","Moderate (10–25%)","Frequent (25–50%)","Heavy (50%+)",
-];
+const MGMT_STYLES = ["Hands-off — sets goals and trusts the team","Collaborative — involved but not directive","Structured — clear expectations and regular feedback","Mentor-focused — invested in growth and development","Varies — adapts to each person"];
+const TRAVEL_LEVELS = ["No travel","Occasional (under 10%)","Moderate (10–25%)","Frequent (25–50%)","Heavy (50%+)"];
 const SCORE_DIMS = [
-  {key:"skills",label:"Hard skills match"},
-  {key:"salary",label:"Salary alignment"},
-  {key:"experience",label:"Years of experience"},
-  {key:"education",label:"Education level"},
-  {key:"culture",label:"Culture & personality fit"},
-  {key:"location",label:"Location / commute fit"},
-  {key:"availability",label:"Availability to start"},
-  {key:"workStyle",label:"Work style alignment"},
+  {key:"skills",label:"Hard skills match"},{key:"salary",label:"Salary alignment"},
+  {key:"experience",label:"Years of experience"},{key:"education",label:"Education level"},
+  {key:"culture",label:"Culture & personality fit"},{key:"location",label:"Location / commute fit"},
+  {key:"availability",label:"Availability to start"},{key:"workStyle",label:"Work style alignment"},
+];
+const TITLE_SUGGESTIONS = [
+  "CEO","CFO","COO","CTO","CMO","CHRO","CRO","CPO","General Counsel","Managing Director","President","Executive Director","Partner","VP of Product","VP of Engineering","VP of Sales","VP of Marketing","VP of Operations","VP of Finance","VP of People","VP of Customer Success","VP of Business Development","Vice President","Director of Product","Director of Engineering","Director of Sales","Director of Marketing","Director of Operations","Director of Finance","Director of People","Director of Design","Director of Customer Success","Director of Data","Director of Strategy","Director","Product Manager","Senior Product Manager","Principal Product Manager","Group Product Manager","Engineering Manager","Senior Engineering Manager","Project Manager","Program Manager","Marketing Manager","Sales Manager","Account Manager","Customer Success Manager","Operations Manager","Finance Manager","People Manager","Brand Manager","Content Manager","Social Media Manager","Community Manager","Software Engineer","Senior Software Engineer","Staff Engineer","Principal Engineer","Data Scientist","Senior Data Scientist","Data Analyst","Senior Data Analyst","Data Engineer","Machine Learning Engineer","DevOps Engineer","Security Engineer","UX Designer","Senior UX Designer","Product Designer","Graphic Designer","UX Researcher","Content Strategist","Copywriter","Technical Writer","Sales Representative","Account Executive","Business Development Representative","Customer Success Specialist","Marketing Specialist","Financial Analyst","Business Analyst","Operations Analyst","Recruiter","HR Generalist","HR Business Partner","Accountant","Controller","Associate","Consultant","Analyst","Specialist","Coordinator",
 ];
 
 // ── DESIGN ────────────────────────────────────────────────────────────────────
@@ -92,17 +97,18 @@ const C = {
 };
 const F = "'Plus Jakarta Sans','Helvetica Neue',sans-serif";
 
-// ── UI COMPONENTS ─────────────────────────────────────────────────────────────
-function Card({children,style={}}){return <div style={{background:C.white,borderRadius:14,border:`1px solid ${C.border}`,padding:"26px 24px",...style}}>{children}</div>;}
+// ── UI PRIMITIVES ─────────────────────────────────────────────────────────────
+function Card({children,style={}}){return <div style={{background:C.white,borderRadius:14,border:`1px solid ${C.border}`,padding:"24px 22px",...style}}>{children}</div>;}
 function SLabel({children}){return <div style={{fontSize:11,fontWeight:700,color:C.teal,textTransform:"uppercase",letterSpacing:1.4,marginBottom:5,fontFamily:F}}>{children}</div>;}
 function QLabel({children,required,optional}){return <div style={{fontSize:15,fontWeight:600,color:C.slate,marginBottom:8,fontFamily:F,lineHeight:1.4,display:"flex",alignItems:"center",gap:8}}><span>{children}</span>{required&&<span style={{color:C.red,fontSize:12}}>*</span>}{optional&&<span style={{fontSize:11,fontWeight:600,color:C.gray400,background:C.gray100,padding:"2px 7px",borderRadius:8}}>optional</span>}</div>;}
-function Sub({children}){return <div style={{fontSize:13,color:C.gray600,marginBottom:11,fontFamily:F,lineHeight:1.5}}>{children}</div>;}
-function Divider(){return <div style={{borderTop:`1px solid ${C.border}`,margin:"22px 0"}}/>;}
+function Sub({children}){return <div style={{fontSize:13,color:C.gray600,marginBottom:10,fontFamily:F,lineHeight:1.5}}>{children}</div>;}
+function Divider(){return <div style={{borderTop:`1px solid ${C.border}`,margin:"20px 0"}}/>;}
 function FInput({value,onChange,placeholder,type="text"}){return <input type={type} value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} style={{width:"100%",padding:"10px 13px",borderRadius:8,background:C.bg,border:`1.5px solid ${C.border}`,color:C.slate,fontSize:14,outline:"none",boxSizing:"border-box",fontFamily:F}}/>;}
 function FTextarea({value,onChange,placeholder,rows=3}){return <textarea value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} rows={rows} style={{width:"100%",padding:"10px 13px",borderRadius:8,background:C.bg,border:`1.5px solid ${C.border}`,color:C.slate,fontSize:14,outline:"none",boxSizing:"border-box",fontFamily:F,resize:"vertical",lineHeight:1.55}}/>;}
 function FSelect({value,onChange,options,placeholder}){return <select value={value} onChange={e=>onChange(e.target.value)} style={{width:"100%",padding:"10px 13px",borderRadius:8,background:C.bg,border:`1.5px solid ${C.border}`,color:value?C.slate:C.gray400,fontSize:14,outline:"none",boxSizing:"border-box",fontFamily:F,cursor:"pointer"}}><option value="">{placeholder||"Select..."}</option>{options.map(o=><option key={o} value={o}>{o}</option>)}</select>;}
 function RadioGroup({options,value,onChange}){return <div style={{display:"flex",flexDirection:"column",gap:7}}>{options.map(o=><button key={o} onClick={()=>onChange(o)} style={{background:value===o?C.tealDim:C.bg,border:`1.5px solid ${value===o?C.teal:C.border}`,borderRadius:8,padding:"10px 13px",color:value===o?C.teal:C.gray600,fontWeight:value===o?600:400,fontSize:13,cursor:"pointer",textAlign:"left",fontFamily:F,transition:"all .15s"}}>{o}</button>)}</div>;}
 function MultiPill({options,values,onChange,max}){function toggle(v){if(values.includes(v))onChange(values.filter(x=>x!==v));else if(!max||values.length<max)onChange([...values,v]);}return <div style={{display:"flex",flexWrap:"wrap",gap:7}}>{options.map(o=><button key={o} onClick={()=>toggle(o)} style={{padding:"6px 13px",borderRadius:20,background:values.includes(o)?C.tealDim:C.bg,border:`1.5px solid ${values.includes(o)?C.teal:C.border}`,color:values.includes(o)?C.teal:C.gray600,fontWeight:values.includes(o)?700:400,fontSize:13,cursor:"pointer",fontFamily:F,transition:"all .15s"}}>{o}</button>)}</div>;}
+
 function MultiDropdown({options,values,onChange,placeholder,max}){
   const [open,setOpen]=useState(false);
   const [search,setSearch]=useState("");
@@ -111,7 +117,7 @@ function MultiDropdown({options,values,onChange,placeholder,max}){
   return <div style={{position:"relative"}}>
     <div onClick={()=>setOpen(o=>!o)} style={{minHeight:42,padding:"8px 13px",borderRadius:8,background:C.bg,border:`1.5px solid ${open?C.teal:C.border}`,cursor:"pointer",display:"flex",flexWrap:"wrap",gap:5,alignItems:"center"}}>
       {values.length===0&&<span style={{color:C.gray400,fontSize:14,fontFamily:F}}>{placeholder}</span>}
-      {values.map(v=><span key={v} style={{background:C.tealDim,border:`1px solid ${C.tealBorder}`,color:C.teal,borderRadius:12,padding:"2px 9px",fontSize:12,fontWeight:600,fontFamily:F,display:"flex",alignItems:"center",gap:4}}>{v}<span onClick={e=>{e.stopPropagation();toggle(v);}} style={{cursor:"pointer",fontWeight:700,fontSize:13}}>×</span></span>)}
+      {values.map(v=><span key={v} style={{background:C.tealDim,border:`1px solid ${C.tealBorder}`,color:C.teal,borderRadius:12,padding:"2px 9px",fontSize:12,fontWeight:600,fontFamily:F,display:"flex",alignItems:"center",gap:4}}>{v}<span onClick={e=>{e.stopPropagation();toggle(v);}} style={{cursor:"pointer",fontWeight:700}}>×</span></span>)}
       <span style={{marginLeft:"auto",color:C.gray400,fontSize:11}}>{open?"▲":"▼"}</span>
     </div>
     {open&&<div style={{position:"absolute",top:"100%",left:0,right:0,background:C.white,border:`1.5px solid ${C.teal}`,borderRadius:8,marginTop:4,zIndex:50,boxShadow:"0 4px 20px rgba(0,0,0,0.1)",maxHeight:240,display:"flex",flexDirection:"column"}}>
@@ -124,12 +130,28 @@ function MultiDropdown({options,values,onChange,placeholder,max}){
         {filtered.length===0&&<div style={{padding:"14px",color:C.gray400,fontSize:13,textAlign:"center",fontFamily:F}}>No results</div>}
       </div>
     </div>}
-  </div>;}
-function MaxSlider({value,onChange,min,max,step=1,format}){return <div><input type="range" min={min} max={max} step={step} value={value} onChange={e=>onChange(+e.target.value)} style={{width:"100%",accentColor:C.teal}}/><div style={{display:"flex",justifyContent:"space-between",marginTop:3}}><span style={{fontSize:12,color:C.gray400,fontFamily:F}}>{format(min)}</span><span style={{fontSize:14,fontWeight:800,color:C.teal,fontFamily:F}}>{format(value)}</span><span style={{fontSize:12,color:C.gray400,fontFamily:F}}>{format(max)}</span></div></div>;}
-function RangeSlider({minVal,maxVal,onMin,onMax,min,max,step=1,format}){return <div style={{display:"flex",gap:18}}>
-  <div style={{flex:1}}><div style={{fontSize:11,color:C.gray600,marginBottom:4,fontFamily:F}}>Minimum</div><input type="range" min={min} max={max} step={step} value={minVal} onChange={e=>onMin(Math.min(+e.target.value,maxVal-step))} style={{width:"100%",accentColor:C.teal}}/><div style={{fontSize:14,fontWeight:800,color:C.teal,marginTop:3,fontFamily:F}}>{format(minVal)}</div></div>
-  <div style={{flex:1}}><div style={{fontSize:11,color:C.gray600,marginBottom:4,fontFamily:F}}>Maximum</div><input type="range" min={min} max={max} step={step} value={maxVal} onChange={e=>onMax(Math.max(+e.target.value,minVal+step))} style={{width:"100%",accentColor:C.teal}}/><div style={{fontSize:14,fontWeight:800,color:C.teal,marginTop:3,fontFamily:F}}>{format(maxVal)}</div></div>
-</div>;}
+  </div>;
+}
+
+// Tag input — same as candidate side
+function TagInput({values,onChange,suggestions,placeholder}){
+  const [input,setInput]=useState("");
+  const [showSug,setShowSug]=useState(false);
+  const filtered=input.length>1?suggestions.filter(s=>s.toLowerCase().includes(input.toLowerCase())&&!values.includes(s)).slice(0,8):[];
+  function add(val){const v=val.trim();if(!v||values.includes(v))return;onChange([...values,v]);setInput("");setShowSug(false);}
+  function remove(v){onChange(values.filter(x=>x!==v));}
+  return <div style={{position:"relative"}}>
+    <div style={{minHeight:44,padding:"6px 10px",borderRadius:8,background:C.bg,border:`1.5px solid ${C.border}`,display:"flex",flexWrap:"wrap",gap:5,alignItems:"center",cursor:"text"}}>
+      {values.map(v=><span key={v} style={{background:C.tealDim,border:`1px solid ${C.tealBorder}`,color:C.teal,borderRadius:12,padding:"3px 10px",fontSize:12,fontWeight:600,fontFamily:F,display:"flex",alignItems:"center",gap:4}}>{v}<span onClick={()=>remove(v)} style={{cursor:"pointer",fontWeight:700,fontSize:13}}>×</span></span>)}
+      <input value={input} onChange={e=>{setInput(e.target.value);setShowSug(true);}} onKeyDown={e=>{if(e.key==="Enter"||e.key===","){e.preventDefault();add(input);}if(e.key==="Backspace"&&!input&&values.length){remove(values[values.length-1]);}}} onFocus={()=>setShowSug(true)} placeholder={values.length===0?placeholder:""} style={{border:"none",outline:"none",background:"none",fontSize:13,color:C.slate,fontFamily:F,minWidth:120,flex:1}}/>
+    </div>
+    {showSug&&filtered.length>0&&<div style={{position:"absolute",top:"100%",left:0,right:0,background:C.white,border:`1.5px solid ${C.teal}`,borderRadius:8,marginTop:3,zIndex:50,boxShadow:"0 4px 16px rgba(0,0,0,0.1)"}}>
+      {filtered.map(s=><div key={s} onClick={()=>add(s)} style={{padding:"9px 14px",cursor:"pointer",fontSize:13,color:C.slate,fontFamily:F}}>{s}</div>)}
+      {input.length>1&&!suggestions.includes(input)&&<div onClick={()=>add(input)} style={{padding:"9px 14px",cursor:"pointer",fontSize:13,color:C.teal,fontWeight:600,fontFamily:F,borderTop:`1px solid ${C.border}`}}>+ Add "{input}"</div>}
+    </div>}
+  </div>;
+}
+
 function ScaleQ({question,low,high,value,onChange}){return <div style={{marginBottom:20}}>
   <div style={{fontSize:14,fontWeight:500,color:C.slate,marginBottom:8,fontFamily:F,lineHeight:1.45}}>{question}</div>
   <div style={{display:"flex",alignItems:"center",gap:8}}>
@@ -138,6 +160,14 @@ function ScaleQ({question,low,high,value,onChange}){return <div style={{marginBo
     <span style={{fontSize:11,color:C.gray600,width:110,flexShrink:0,textAlign:"right",lineHeight:1.3}}>{high}</span>
   </div>
 </div>;}
+
+function MaxSlider({value,onChange,min,max,step=1,format}){return <div><input type="range" min={min} max={max} step={step} value={value} onChange={e=>onChange(+e.target.value)} style={{width:"100%",accentColor:C.teal}}/><div style={{display:"flex",justifyContent:"space-between",marginTop:3}}><span style={{fontSize:12,color:C.gray400,fontFamily:F}}>{format(min)}</span><span style={{fontSize:14,fontWeight:800,color:C.teal,fontFamily:F}}>{format(value)}</span><span style={{fontSize:12,color:C.gray400,fontFamily:F}}>{format(max)}</span></div></div>;}
+
+function RangeSlider({minVal,maxVal,onMin,onMax,min,max,step=1,format}){return <div style={{display:"flex",gap:18}}>
+  <div style={{flex:1}}><div style={{fontSize:11,color:C.gray600,marginBottom:4,fontFamily:F}}>Minimum</div><input type="range" min={min} max={max} step={step} value={minVal} onChange={e=>onMin(Math.min(+e.target.value,maxVal-step))} style={{width:"100%",accentColor:C.teal}}/><div style={{fontSize:14,fontWeight:800,color:C.teal,marginTop:3,fontFamily:F}}>{format(minVal)}</div></div>
+  <div style={{flex:1}}><div style={{fontSize:11,color:C.gray600,marginBottom:4,fontFamily:F}}>Maximum</div><input type="range" min={min} max={max} step={step} value={maxVal} onChange={e=>onMax(Math.max(+e.target.value,minVal+step))} style={{width:"100%",accentColor:C.teal}}/><div style={{fontSize:14,fontWeight:800,color:C.teal,marginTop:3,fontFamily:F}}>{format(maxVal)}</div></div>
+</div>;}
+
 function WeightSlider({label,value,onChange}){
   const labels=["Not important","Low","Medium","High","Critical"];
   const colors=[C.gray400,C.gray400,C.amber,C.teal,C.green];
@@ -146,12 +176,15 @@ function WeightSlider({label,value,onChange}){
     <input type="range" min={1} max={5} step={1} value={value} onChange={e=>onChange(+e.target.value)} style={{width:"100%",accentColor:C.teal}}/>
     <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:C.gray400,marginTop:2,fontFamily:F}}><span>Not important</span><span>Critical</span></div>
   </div>;}
+
 function Toggle({label,sub,value,onChange}){return <div onClick={()=>onChange(!value)} style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer",marginBottom:10}}>
   <div style={{width:40,height:22,borderRadius:11,background:value?C.teal:C.gray200,position:"relative",transition:"background .2s",flexShrink:0}}><div style={{width:16,height:16,borderRadius:"50%",background:C.white,position:"absolute",top:3,left:value?21:3,transition:"left .2s"}}/></div>
   <div><div style={{fontSize:14,color:C.slate,fontWeight:value?600:400,fontFamily:F}}>{label}</div>{sub&&<div style={{fontSize:12,color:C.gray400,fontFamily:F}}>{sub}</div>}</div>
 </div>;}
+
 function NudgeBanner({children}){return <div style={{background:C.amberDim,border:`1px solid ${C.amber}33`,borderRadius:9,padding:"11px 14px",marginBottom:14,display:"flex",gap:8,alignItems:"flex-start"}}><span style={{fontSize:16,flexShrink:0}}>💡</span><span style={{fontSize:13,color:C.amber,fontWeight:600,fontFamily:F,lineHeight:1.5}}>{children}</span></div>;}
-function Progress({step,total}){const pct=Math.round(((step+1)/(total+1))*100);return <div style={{marginBottom:24}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}><span style={{fontSize:12,color:C.gray600,fontFamily:F}}>{step<total?`Section ${step+1} of ${total}`:"Review"}</span><span style={{fontSize:12,fontWeight:700,color:C.teal,fontFamily:F}}>{pct}% complete</span></div><div style={{height:5,background:C.gray100,borderRadius:3}}><div style={{width:`${pct}%`,height:"100%",borderRadius:3,background:C.teal,transition:"width .4s"}}/></div></div>;}
+
+function Progress({step,total}){const pct=Math.round(((step+1)/(total+1))*100);return <div style={{marginBottom:22}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}><span style={{fontSize:12,color:C.gray600,fontFamily:F}}>{step<total?`Section ${step+1} of ${total}`:"Review"}</span><span style={{fontSize:12,fontWeight:700,color:C.teal,fontFamily:F}}>{pct}% complete</span></div><div style={{height:5,background:C.gray100,borderRadius:3}}><div style={{width:`${pct}%`,height:"100%",borderRadius:3,background:C.teal,transition:"width .4s"}}/></div></div>;}
 
 // ── SECTIONS ──────────────────────────────────────────────────────────────────
 
@@ -183,7 +216,11 @@ function S2({d,set}){return <>
   <h2 style={{fontSize:21,fontWeight:800,color:C.slate,margin:"0 0 3px",letterSpacing:-0.5,fontFamily:F}}>Role Details</h2>
   <Sub>The specifics of the position you're hiring for.</Sub>
   <Divider/>
-  <div style={{marginBottom:12}}><QLabel required>Job title</QLabel><FInput value={d.jobTitle} onChange={v=>set(x=>({...x,jobTitle:v}))} placeholder="e.g. Senior Product Manager"/></div>
+  <div style={{marginBottom:12}}><QLabel required>Job title</QLabel>
+    <div style={{position:"relative"}}>
+      <FInput value={d.jobTitle} onChange={v=>set(x=>({...x,jobTitle:v}))} placeholder="e.g. Senior Product Manager"/>
+    </div>
+  </div>
   <div style={{marginBottom:12}}><QLabel optional>Department</QLabel><FInput value={d.department} onChange={v=>set(x=>({...x,department:v}))} placeholder="e.g. Product, Engineering, Sales"/></div>
   <div style={{marginBottom:12}}><QLabel optional>This role reports to</QLabel><FInput value={d.reportsTo} onChange={v=>set(x=>({...x,reportsTo:v}))} placeholder="e.g. VP of Product, Chief Marketing Officer"/></div>
   <Divider/>
@@ -216,23 +253,20 @@ function S3({d,set}){
     <Sub>What does the right person actually need? Be honest — over-specifying filters out great candidates.</Sub>
     <Divider/>
     <QLabel required>Minimum years of experience</QLabel>
-    <Sub>The floor, not the ideal. If someone with less could still do the job well, set it lower.</Sub>
+    <Sub>The floor, not the ideal.</Sub>
     <MaxSlider value={d.minExp} onChange={v=>set(x=>({...x,minExp:v}))} min={0} max={15} step={1} format={fmtYrs}/>
     <Divider/>
     <QLabel required>Minimum education level</QLabel>
     <FSelect value={d.minEducation} onChange={v=>set(x=>({...x,minEducation:v}))} options={EDUCATION_LEVELS} placeholder="Select minimum education..."/>
     <Divider/>
-    <QLabel required>Required hard skills</QLabel>
-    <Sub>Only include skills that are genuinely required — not a wishlist.</Sub>
-    <MultiDropdown options={TECH_SKILLS} values={d.requiredSkills} onChange={v=>set(x=>({...x,requiredSkills:v}))} placeholder="Search and select required skills..."/>
-    {d.requiredSkills.length>0&&<div style={{fontSize:12,color:C.gray400,marginTop:6,fontFamily:F}}>{d.requiredSkills.length} selected</div>}
+    <QLabel required>Required skills</QLabel>
+    <Sub>Only include skills that are genuinely required — not a wishlist. Type + Enter to add.</Sub>
+    <TagInput values={d.requiredSkills} onChange={v=>set(x=>({...x,requiredSkills:v}))} suggestions={SKILL_SUGGESTIONS} placeholder="e.g. Product Management, SQL, Stakeholder management..."/>
+    {d.requiredSkills.length>0&&<div style={{fontSize:12,color:C.gray400,marginTop:6,fontFamily:F}}>{d.requiredSkills.length} required skills</div>}
     <Divider/>
     <QLabel optional>Nice-to-have skills</QLabel>
-    <MultiDropdown options={TECH_SKILLS} values={d.niceSkills} onChange={v=>set(x=>({...x,niceSkills:v}))} placeholder="Search and select nice-to-have skills..."/>
-    <Divider/>
-    <QLabel optional>Soft skills you're prioritizing for this role (up to 5)</QLabel>
-    <MultiDropdown options={SOFT_SKILLS} values={d.softSkills} onChange={v=>v.length<=5&&set(x=>({...x,softSkills:v}))} placeholder="Search and select soft skills..." max={5}/>
-    {d.softSkills.length>0&&<div style={{fontSize:12,color:C.gray400,marginTop:6,fontFamily:F}}>{d.softSkills.length}/5 selected</div>}
+    <Sub>Skills that help a candidate stand out but aren't dealbreakers.</Sub>
+    <TagInput values={d.niceSkills} onChange={v=>set(x=>({...x,niceSkills:v}))} suggestions={SKILL_SUGGESTIONS} placeholder="e.g. Tableau, Six Sigma, Mandarin..."/>
     <Divider/>
     <QLabel optional>Preferred industries candidates have worked in</QLabel>
     <Sub>Leave blank if you're open to any background.</Sub>
@@ -252,7 +286,7 @@ function S4({d,set}){
     <h2 style={{fontSize:21,fontWeight:800,color:C.slate,margin:"0 0 3px",letterSpacing:-0.5,fontFamily:F}}>Compensation & Benefits</h2>
     <Sub>You're never required to share this — but candidates who see salary ranges are 3× more likely to apply.</Sub>
     <Divider/>
-    <QLabel optional>Base salary range</QLabel>
+    <QLabel optional>Salary range</QLabel>
     <NudgeBanner>Roles with salary ranges get significantly more qualified applicants. Candidates self-select in and out — saving everyone time.</NudgeBanner>
     <Toggle label="Share salary range with candidates" value={d.showSalary} onChange={v=>set(x=>({...x,showSalary:v}))}/>
     {d.showSalary&&<div style={{marginTop:12}}><RangeSlider minVal={d.salaryMin} maxVal={d.salaryMax} onMin={v=>set(x=>({...x,salaryMin:v}))} onMax={v=>set(x=>({...x,salaryMax:v}))} min={30} max={500} step={5} format={fmtSalary}/></div>}
@@ -261,15 +295,12 @@ function S4({d,set}){
     <RadioGroup options={["No bonus","Discretionary bonus","Performance-based bonus","Commission-based","Profit sharing","Prefer not to share"]} value={d.bonus} onChange={v=>set(x=>({...x,bonus:v}))}/>
     <Divider/>
     <QLabel optional>Equity / stock options</QLabel>
-    <NudgeBanner>Equity is a major differentiator for top candidates, especially at startups. Even a rough range helps.</NudgeBanner>
+    <NudgeBanner>Equity is a major differentiator for top candidates, especially at startups.</NudgeBanner>
     <Toggle label="Share equity information" value={d.showEquity} onChange={v=>set(x=>({...x,showEquity:v}))}/>
     {d.showEquity&&<div style={{marginTop:10}}><RadioGroup options={["Stock options (ISO/NSO)","RSUs (Restricted Stock Units)","Phantom equity / profit interest","No equity for this role"]} value={d.equityType} onChange={v=>set(x=>({...x,equityType:v}))}/></div>}
     <Divider/>
     <QLabel optional>Benefits offered</QLabel>
     <MultiPill options={["Health insurance (medical)","Dental & vision","401(k) / retirement","401(k) matching","Unlimited PTO","Paid parental leave","Life insurance","Disability insurance","HSA / FSA","Remote work stipend","Home office stipend","Learning & development budget","Gym / wellness reimbursement","Commuter benefits","Stock purchase plan","Mental health benefits","Flexible hours","4-day work week"]} values={d.benefits} onChange={v=>set(x=>({...x,benefits:v}))}/>
-    <Divider/>
-    <QLabel optional>Anything else about compensation worth sharing?</QLabel>
-    <FTextarea value={d.compNotes} onChange={v=>set(x=>({...x,compNotes:v}))} placeholder="e.g. We benchmark to the 75th percentile. Salary reviewed annually. Signing bonus available for senior hires..." rows={3}/>
   </>;}
 
 function S5({d,set}){return <>
@@ -278,7 +309,7 @@ function S5({d,set}){return <>
   <Sub>This is how we match candidates to your team's actual dynamic. The more honest you are, the better the matches.</Sub>
   <Divider/>
   <QLabel required>How would you describe your team's culture?</QLabel>
-  <Sub>These exact descriptors are what candidates use to describe what they're looking for — so overlap = culture match score.</Sub>
+  <Sub>These exact descriptors are what candidates use when describing what they want — overlap = culture match score.</Sub>
   <MultiPill options={CULTURE_DESCRIPTORS} values={d.teamCulture} onChange={v=>set(x=>({...x,teamCulture:v}))}/>
   <Divider/>
   <QLabel required>Management style of the direct manager for this role</QLabel>
@@ -288,7 +319,7 @@ function S5({d,set}){return <>
   <RadioGroup options={["Real-time — as things happen","Regular check-ins (weekly or bi-weekly)","Formal periodic reviews (quarterly)","As-needed — people ask when they want it"]} value={d.feedbackCulture} onChange={v=>set(x=>({...x,feedbackCulture:v}))}/>
   <Divider/>
   <div style={{background:C.tealDim,border:`1px solid ${C.tealBorder}`,borderRadius:9,padding:"12px 14px",marginBottom:20}}>
-    <p style={{fontSize:13,color:C.teal,fontWeight:600,margin:0,fontFamily:F}}>Rate what this role actually requires 1–5. 1 = strongly left, 5 = strongly right, 3 = balanced. These are matched against how candidates rate themselves.</p>
+    <p style={{fontSize:13,color:C.teal,fontWeight:600,margin:0,fontFamily:F}}>Rate what this role requires 1–5. These are matched directly against how candidates rate themselves — the closer the scores, the higher the personality match.</p>
   </div>
   {PERSONALITY_DIMS.map(q=><ScaleQ key={q.id} question={q.q} low={q.low} high={q.high} value={d.personality?.[q.id]} onChange={v=>set(x=>({...x,personality:{...x.personality,[q.id]:v}}))}/>)}
   <Divider/>
@@ -297,41 +328,32 @@ function S5({d,set}){return <>
   <Divider/>
   <QLabel optional>What type of person struggles in this role?</QLabel>
   <Sub>Honest answers here save everyone time — candidates who aren't a fit will self-select out.</Sub>
-  <FTextarea value={d.whoStruggles} onChange={v=>set(x=>({...x,whoStruggles:v}))} placeholder="e.g. Someone who needs a lot of direction or prefers a structured, predictable environment may find this role challenging..." rows={3}/>
+  <FTextarea value={d.whoStruggles} onChange={v=>set(x=>({...x,whoStruggles:v}))} placeholder="e.g. Someone who needs a lot of direction or prefers a structured, predictable environment..." rows={3}/>
 </>;}
 
 function S6({d,set}){return <>
   <SLabel>Section 6</SLabel>
   <h2 style={{fontSize:21,fontWeight:800,color:C.slate,margin:"0 0 3px",letterSpacing:-0.5,fontFamily:F}}>Scoring Weights</h2>
-  <Sub>How much should each dimension matter when we rank candidates for this role? A sales role might weight personality highly. An engineering role might make hard skills critical.</Sub>
+  <Sub>How much should each dimension matter when we rank candidates for this role? These weights directly affect who shows up at the top of your list.</Sub>
   <Divider/>
   <div style={{background:C.tealDim,border:`1px solid ${C.tealBorder}`,borderRadius:9,padding:"12px 14px",marginBottom:22}}>
-    <p style={{fontSize:13,color:C.teal,fontWeight:600,margin:0,fontFamily:F}}>These weights are unique to this job posting and directly affect who shows up at the top of your candidate list.</p>
+    <p style={{fontSize:13,color:C.teal,fontWeight:600,margin:0,fontFamily:F}}>These weights are unique to this posting. A sales role might make personality critical. An engineering role might make hard skills critical.</p>
   </div>
   {SCORE_DIMS.map(({key,label})=><WeightSlider key={key} label={label} value={d.weights[key]||3} onChange={v=>set(x=>({...x,weights:{...x.weights,[key]:v}}))}/>)}
   <Divider/>
-  <QLabel optional>Anything else that matters for this role that we haven't asked?</QLabel>
-  <FTextarea value={d.otherNotes} onChange={v=>set(x=>({...x,otherNotes:v}))} placeholder="e.g. Must be based in CST/EST time zone. Experience with Series A companies strongly preferred. Bilingual Spanish a major plus..." rows={3}/>
+  <QLabel optional>Anything else that matters for this role?</QLabel>
+  <FTextarea value={d.otherNotes} onChange={v=>set(x=>({...x,otherNotes:v}))} placeholder="e.g. Must be based in CST/EST time zone. Bilingual Spanish a major plus. Experience with Series A companies strongly preferred..." rows={3}/>
 </>;}
 
 function Review({data}){
   const fmtSalary=v=>v>=500?"$500k+":`$${v}k`;
   const rows=[
-    ["Company",data.companyName],
-    ["Industry",data.industry?.join(", ")],
-    ["Company size",data.companySize],
-    ["Job title",data.jobTitle],
-    ["Employment type",data.employmentType?.join(", ")],
-    ["Remote policy",data.remotePolicy],
-    ["Start date",data.startDate],
-    ["Min. experience",data.minExp!==undefined?`${data.minExp}+ yrs`:""],
-    ["Min. education",data.minEducation],
-    ["Required skills",data.requiredSkills?.slice(0,3).join(", ")+(data.requiredSkills?.length>3?`+${data.requiredSkills.length-3} more`:"")],
+    ["Company",data.companyName],["Industry",data.industry?.join(", ")],["Company size",data.companySize],
+    ["Job title",data.jobTitle],["Employment type",data.employmentType?.join(", ")],["Remote policy",data.remotePolicy],
+    ["Start date",data.startDate],["Min. experience",data.minExp!==undefined?`${data.minExp}+ yrs`:""],
+    ["Min. education",data.minEducation],["Required skills",data.requiredSkills?.slice(0,4).join(", ")+(data.requiredSkills?.length>4?`+${data.requiredSkills.length-4} more`:"")],
     ["Salary range",data.showSalary&&data.salaryMin&&data.salaryMax?`${fmtSalary(data.salaryMin)} – ${fmtSalary(data.salaryMax)}`:"Not shared"],
-    ["Equity",data.showEquity?data.equityType:"Not shared"],
-    ["Team culture",data.teamCulture?.slice(0,3).join(", ")],
-    ["Management style",data.mgmtStyle],
-    ["Work authorization",data.workAuth],
+    ["Team culture",data.teamCulture?.slice(0,3).join(", ")],["Management style",data.mgmtStyle],["Work authorization",data.workAuth],
   ];
   return <>
     <SLabel>Almost done</SLabel>
@@ -344,7 +366,7 @@ function Review({data}){
         <span style={{fontSize:13,color:C.slate,fontWeight:600,fontFamily:F,lineHeight:1.4}}>{v}</span>
       </div>
     ))}
-    <div style={{marginTop:22,background:C.tealDim,border:`1px solid ${C.tealBorder}`,borderRadius:9,padding:"14px 16px"}}>
+    <div style={{marginTop:20,background:C.tealDim,border:`1px solid ${C.tealBorder}`,borderRadius:9,padding:"14px 16px"}}>
       <p style={{fontSize:13,color:C.teal,fontWeight:600,margin:0,fontFamily:F}}>✓ Once posted, candidates are ranked in real time. You'll be notified when strong matches appear.</p>
     </div>
   </>;}
@@ -357,8 +379,8 @@ const SECTIONS=[
 const INIT={
   companyName:"",website:"",industry:[],companySize:"",stage:"",hqLocation:"",companyDesc:"",
   jobTitle:"",department:"",reportsTo:"",employmentType:[],remotePolicy:"",officeLocation:"",startDate:"",managingReports:"",travel:"",jobDesc:"",
-  minExp:2,minEducation:"",requiredSkills:[],niceSkills:[],softSkills:[],preferredIndustries:[],requiredCerts:"",workAuth:"",
-  showSalary:false,salaryMin:80,salaryMax:150,bonus:"",showEquity:false,equityType:"",benefits:[],compNotes:"",
+  minExp:2,minEducation:"",requiredSkills:[],niceSkills:[],preferredIndustries:[],requiredCerts:"",workAuth:"",
+  showSalary:false,salaryMin:80,salaryMax:150,bonus:"",showEquity:false,equityType:"",benefits:[],
   teamCulture:[],mgmtStyle:"",feedbackCulture:"",personality:{},successIn90:"",whoStruggles:"",
   weights:{skills:3,salary:3,experience:3,education:2,culture:3,location:2,availability:2,workStyle:3},otherNotes:"",
 };

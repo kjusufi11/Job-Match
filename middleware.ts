@@ -46,6 +46,14 @@ export async function middleware(request: NextRequest) {
     // Auth check failed — allow the request through rather than blocking navigation
   }
 
+  // Prevent CDN and browsers from caching page HTML.
+  // Static assets already get long-lived cache via next.config.js headers.
+  const isPageRequest = !path.startsWith('/_next/') && !path.startsWith('/api/') && !path.includes('.');
+  if (isPageRequest) {
+    response.headers.set('Cache-Control', 'public, max-age=0, must-revalidate');
+    response.headers.set('Surrogate-Control', 'no-store');
+  }
+
   return response;
 }
 
