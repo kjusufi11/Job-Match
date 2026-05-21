@@ -33,7 +33,7 @@ export default function SignUp() {
 
     if (error) { setErr(error.message); setLoading(false); return; }
 
-    router.push(form.role === 'recruiter' ? '/recruiter/post' : '/dashboard');
+    window.location.href = form.role === 'recruiter' ? '/recruiter/post' : '/dashboard';
   }
 
   return (

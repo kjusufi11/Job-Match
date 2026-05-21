@@ -959,6 +959,7 @@ export default function ProfileSurvey(){
           {autoSaved&&<span style={{fontSize:11,color:C.green,fontWeight:600,fontFamily:F}}>✓ Saved</span>}
           {saveError&&<span style={{fontSize:11,color:C.amber,fontWeight:600,fontFamily:F}}>⚠ Not saved</span>}
           <span style={{fontSize:12,color:C.gray600,fontWeight:500,fontFamily:F}}>{isReview?'Review & submit':`${step} of ${total} · ${SECTIONS[step-1]?.label}`}</span>
+          {isEdit&&<button onClick={()=>setShowResume(true)} style={{fontSize:12,color:C.teal,background:'none',border:`1px solid ${C.tealBorder}`,borderRadius:6,padding:'4px 10px',cursor:'pointer',fontFamily:F,fontWeight:600,whiteSpace:'nowrap'}}>📄 Import resume</button>}
           <button onClick={signOut} style={{fontSize:12,color:C.gray600,background:'none',border:`1px solid ${C.border}`,borderRadius:6,padding:'4px 10px',cursor:'pointer',fontFamily:F,fontWeight:500,whiteSpace:'nowrap'}}>Sign out</button>
         </div>
       </div>

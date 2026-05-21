@@ -2,25 +2,27 @@ import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
 export async function middleware(request: NextRequest) {
-  let response = NextResponse.next({ request: { headers: request.headers } });
+  // Start with a base response that forwards the request as-is.
+  // Supabase's setAll will reassign this when it needs to persist refreshed tokens.
+  let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        get(name: string) { return request.cookies.get(name)?.value; },
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        set(name: string, value: string, options: any) {
-          request.cookies.set({ name, value, ...options });
-          response = NextResponse.next({ request: { headers: request.headers } });
-          response.cookies.set({ name, value, ...options });
+        getAll() {
+          return request.cookies.getAll();
         },
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        remove(name: string, options: any) {
-          request.cookies.set({ name, value: '', ...options });
-          response = NextResponse.next({ request: { headers: request.headers } });
-          response.cookies.set({ name, value: '', ...options });
+        setAll(cookiesToSet: { name: string; value: string; options?: any }[]) {
+          // Write cookies back onto the request so subsequent getAll() calls see them.
+          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
+          // Replace supabaseResponse so all refreshed cookies are carried forward.
+          supabaseResponse = NextResponse.next({ request });
+          cookiesToSet.forEach(({ name, value, options }) =>
+            supabaseResponse.cookies.set(name, value, options)
+          );
         },
       },
     }
@@ -28,40 +30,46 @@ export async function middleware(request: NextRequest) {
 
   const path = request.nextUrl.pathname;
 
+  // getUser() validates the JWT and triggers a token refresh when needed.
+  // getSession() only reads the cookie and can be stale — don't use it in middleware.
+  let user: { id: string } | null = null;
   try {
-    // Read session from cookie — no network round-trip, keeps navigation fast
-    const { data: { session } } = await supabase.auth.getSession();
-    const user = session?.user ?? null;
-
-    const authRequired = ['/dashboard', '/profile', '/notifications', '/settings', '/recruiter', '/admin'];
-    if (authRequired.some(r => path.startsWith(r)) && !user) {
-      return NextResponse.redirect(new URL('/login', request.url));
-    }
-
-    // Already logged in → skip auth pages
-    if (user && (path === '/login' || path === '/signup')) {
-      return NextResponse.redirect(new URL('/dashboard', request.url));
-    }
+    const { data } = await supabase.auth.getUser();
+    user = data.user;
   } catch {
-    // Auth check failed — allow the request through rather than blocking navigation
+    // Network error or invalid token — treat as logged out, allow through
   }
 
-  // Stamp every response with the deployment ID so clients can detect version changes.
-  // VERCEL_DEPLOYMENT_ID is set automatically on Vercel; falls back to 'dev' locally.
+  const authRequired = ['/dashboard', '/profile', '/notifications', '/settings', '/recruiter', '/admin'];
+  if (authRequired.some(r => path.startsWith(r)) && !user) {
+    const res = NextResponse.redirect(new URL('/login', request.url));
+    // Carry Supabase cookies onto the redirect so the session isn't dropped.
+    supabaseResponse.cookies.getAll().forEach(c => res.cookies.set(c.name, c.value));
+    return res;
+  }
+
+  // Logged-in users don't need auth pages — send them home.
+  if (user && (path === '/login' || path === '/signup')) {
+    const res = NextResponse.redirect(new URL('/dashboard', request.url));
+    supabaseResponse.cookies.getAll().forEach(c => res.cookies.set(c.name, c.value));
+    return res;
+  }
+
+  // Stamp every response with the deploy ID so the client can detect version changes.
   const deployId = process.env.VERCEL_DEPLOYMENT_ID ?? 'dev';
-  response.cookies.set('app-deploy-id', deployId, {
+  supabaseResponse.cookies.set('app-deploy-id', deployId, {
     maxAge: 60 * 60 * 24 * 365, httpOnly: false, sameSite: 'lax', path: '/',
   });
 
-  // Prevent CDN and browsers from caching page HTML.
-  // Static assets already get long-lived cache via next.config.js headers.
-  const isPageRequest = !path.startsWith('/_next/') && !path.startsWith('/api/') && !path.includes('.');
+  // Prevent CDN / browser caching of page HTML.
+  const isPageRequest =
+    !path.startsWith('/_next/') && !path.startsWith('/api/') && !path.includes('.');
   if (isPageRequest) {
-    response.headers.set('Cache-Control', 'public, max-age=0, must-revalidate');
-    response.headers.set('Surrogate-Control', 'no-store');
+    supabaseResponse.headers.set('Cache-Control', 'public, max-age=0, must-revalidate');
+    supabaseResponse.headers.set('Surrogate-Control', 'no-store');
   }
 
-  return response;
+  return supabaseResponse;
 }
 
 export const config = {
