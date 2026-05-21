@@ -96,14 +96,8 @@ export default function SeekerDashboard() {
   if (loading || fetching) return <Spinner />;
 
   if (!profile?.profile_complete) {
-    return (
-      <div style={{ minHeight: '70vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: 24, background: C.bg, fontFamily: F }}>
-        <div style={{ fontSize: 40, marginBottom: 14 }}>📋</div>
-        <h2 style={{ fontSize: 20, fontWeight: 800, color: C.slate, margin: '0 0 7px' }}>Complete your profile first</h2>
-        <p style={{ color: C.gray600, fontSize: 14, maxWidth: 320, margin: '0 auto 20px', lineHeight: 1.6 }}>Your profile is how we score and rank you against open roles. Takes about 5 minutes.</p>
-        <PBtn onClick={() => router.push('/profile')}>Build my profile →</PBtn>
-      </div>
-    );
+    router.replace('/profile');
+    return <Spinner />;
   }
 
   const visible = matches.filter(m => {
