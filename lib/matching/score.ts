@@ -107,33 +107,90 @@ function scoreLocation(seeker: Profile, job: Job): number {
 
 // ── Industry ─────────────────────────────────────────────────────────────────
 function scoreIndustry(seeker: Profile, job: Job): number {
-  if (!job.industry) return 70;
-  const jobInd = job.industry.toLowerCase();
+  // preferred_industries = what recruiter wants candidate background in
+  // company_industries   = what the company itself operates in (fallback)
+  const jobInds = [
+    ...(job.preferred_industries ?? []),
+    ...(job.company_industries ?? []),
+  ].map(s => s.toLowerCase());
+
+  if (!jobInds.length) return 70;
 
   const targets = (seeker.target_industries ?? []).map(s => s.toLowerCase());
   const worked  = (seeker.industries ?? []).map(s => s.toLowerCase());
 
-  if (targets.some(t => t.includes(jobInd) || jobInd.includes(t))) return 100;
-  if (worked.some(w => w.includes(jobInd) || jobInd.includes(w))) return 88;
+  const hitTarget = jobInds.some(j => targets.some(t => t.includes(j) || j.includes(t)));
+  const hitWorked = jobInds.some(j => worked.some(w => w.includes(j) || j.includes(w)));
+
+  if (hitTarget && hitWorked) return 100;
+  if (hitTarget) return 95;
+  if (hitWorked) return 85;
   if (!targets.length && !worked.length) return 65;
   return 38;
 }
 
 // ── Personality ──────────────────────────────────────────────────────────────
-function scorePersonality(seeker: Profile, _job: Job): number {
-  const p = seeker.personality as Record<string, number> | null | undefined;
-  if (!p) return 50;
-  const answered = Object.values(p).filter(v => typeof v === 'number' && v > 0).length;
-  if (answered >= 10) return 88;
-  if (answered >= 6)  return 75;
-  if (answered >= 3)  return 63;
-  return 50;
+function scorePersonality(seeker: Profile, job: Job): number {
+  const seekerP = seeker.personality as Record<string, number> | null | undefined;
+  const jobP    = job.personality_required as Record<string, number> | null | undefined;
+
+  if (!seekerP) return 50;
+
+  // No job requirements — score based on how completely the seeker filled this out
+  const dims = jobP ? Object.keys(jobP).filter(k => (jobP[k] ?? 0) > 0) : [];
+  if (!dims.length) {
+    const answered = Object.values(seekerP).filter(v => typeof v === 'number' && v > 0).length;
+    if (answered >= 10) return 88;
+    if (answered >= 6)  return 75;
+    if (answered >= 3)  return 63;
+    return 50;
+  }
+
+  // Compare each required dimension: diff of 0→100, 1→75, 2→50, 3→25, 4→0
+  const answered = dims.filter(k => (seekerP[k] ?? 0) > 0);
+  if (!answered.length) return 55;
+
+  const avg = answered.reduce((acc, k) => {
+    const diff = Math.abs((seekerP[k] as number) - (jobP![k] as number));
+    return acc + Math.max(0, 100 - diff * 25);
+  }, 0) / answered.length;
+
+  // Scale down slightly if seeker skipped some required dimensions
+  const coverage = answered.length / dims.length;
+  return Math.round(avg * (0.7 + 0.3 * coverage));
 }
 
 // ── Work Style ───────────────────────────────────────────────────────────────
 function scoreWorkStyle(seeker: Profile, job: Job): number {
-  // Location preference is the dominant work-style signal for job matching
-  return scoreLocation(seeker, job);
+  let total = 0;
+  let count = 0;
+
+  // Culture overlap: seeker's target_culture vs job's team_culture
+  const sc = (seeker.target_culture ?? []).map(s => s.toLowerCase());
+  const jc = (job.team_culture ?? []).map(s => s.toLowerCase());
+  if (sc.length && jc.length) {
+    const overlap = sc.filter(c => jc.some(j => j.includes(c) || c.includes(j))).length;
+    total += Math.round((overlap / Math.max(sc.length, jc.length)) * 100);
+    count++;
+  }
+
+  // Management style
+  const sm = (seeker.mgmt_style ?? '').toLowerCase();
+  const jm = (job.mgmt_style ?? '').toLowerCase();
+  if (sm && jm) {
+    total += sm === jm ? 100 : sm.split(' ')[0] === jm.split(' ')[0] ? 70 : 30;
+    count++;
+  }
+
+  // Feedback preference
+  const sf = (seeker.feedback_pref ?? '').toLowerCase();
+  const jf = (job.feedback_culture ?? '').toLowerCase();
+  if (sf && jf) {
+    total += sf === jf ? 100 : 55;
+    count++;
+  }
+
+  return count ? Math.round(total / count) : 70;
 }
 
 // ── Availability ─────────────────────────────────────────────────────────────
