@@ -46,6 +46,13 @@ export async function middleware(request: NextRequest) {
     // Auth check failed — allow the request through rather than blocking navigation
   }
 
+  // Stamp every response with the deployment ID so clients can detect version changes.
+  // VERCEL_DEPLOYMENT_ID is set automatically on Vercel; falls back to 'dev' locally.
+  const deployId = process.env.VERCEL_DEPLOYMENT_ID ?? 'dev';
+  response.cookies.set('app-deploy-id', deployId, {
+    maxAge: 60 * 60 * 24 * 365, httpOnly: false, sameSite: 'lax', path: '/',
+  });
+
   // Prevent CDN and browsers from caching page HTML.
   // Static assets already get long-lived cache via next.config.js headers.
   const isPageRequest = !path.startsWith('/_next/') && !path.startsWith('/api/') && !path.includes('.');

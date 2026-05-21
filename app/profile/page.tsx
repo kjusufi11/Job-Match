@@ -519,7 +519,9 @@ export default function ProfileSurvey(){
 
   // Pre-fill from DB + restore localStorage draft
   useEffect(()=>{
-    if(!profile)return;
+    if(loading)return;
+    // loading finished but profile still null — new user whose row may not exist yet; show resume screen
+    if(!profile){setShowResume(true);return;}
     setIsEdit(!!profile.profile_complete);
     setShowResume(!profile.profile_complete);
     const fp:SurveyData={
@@ -547,7 +549,8 @@ export default function ProfileSurvey(){
       try{const s=localStorage.getItem(`matcht_profile_draft_${profile.id}`);if(s){setData(JSON.parse(s));return;}}catch{}
     }
     setData(fp);
-  },[profile?.id]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[loading,profile?.id]);
 
   // Auto-save to localStorage (800ms debounce after any data change)
   useEffect(()=>{
