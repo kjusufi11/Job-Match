@@ -919,7 +919,7 @@ export default function ProfileSurvey(){
   async function saveProgress(d:SurveyData):Promise<boolean>{
     const uid=profile?.id??user?.id;
     if(!uid)return false;
-    setSavingSection(true);setSectionSaved(false);setSaveError('');
+    setSectionSaved(false);setSaveError('');
     try{
       const totalExp=deriveExpYears(d.jobs)||null;
       const payload={
@@ -976,7 +976,7 @@ export default function ProfileSurvey(){
       console.error('[saveProgress] error:', err);
       setSaveError(msg);
       return false;
-    }finally{setSavingSection(false);}
+    }finally{setSavingSection(false);} // savingSection kept for submit spinner; not set by saveProgress
   }
 
   async function submit(){
@@ -1037,7 +1037,6 @@ export default function ProfileSurvey(){
 
       {/* Sticky progress header — no logo (Nav already has it) */}
       <div style={{background:C.white,borderBottom:`1px solid ${C.border}`,padding:'0 20px',height:50,display:'flex',alignItems:'center',justifyContent:'flex-end',gap:12,position:'sticky',top:0,zIndex:100,boxShadow:'0 1px 4px rgba(0,0,0,.04)'}}>
-        {savingSection&&<span style={{fontSize:11,color:C.gray600,fontWeight:600,fontFamily:F}}>Saving…</span>}
         {sectionSaved&&<span style={{fontSize:11,color:C.green,fontWeight:600,fontFamily:F}}>✓ Saved</span>}
         {!savingSection&&!sectionSaved&&autoSaved&&<span style={{fontSize:11,color:C.gray400,fontWeight:500,fontFamily:F}}>✓ Draft saved</span>}
         {saveError&&<span style={{fontSize:11,color:C.amber,fontWeight:600,fontFamily:F}}>⚠ {saveError}</span>}
