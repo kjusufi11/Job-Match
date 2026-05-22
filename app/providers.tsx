@@ -49,22 +49,18 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let cancelled = false;
-    const loadingTimer = setTimeout(() => { if (!cancelled) setLoading(false); }, 5000);
 
     async function init() {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (cancelled) return;
-        setUser(session?.user ?? null);
-        if (session?.user) await fetchProfile(session.user.id);
+        const u = session?.user ?? null;
+        setUser(u);
+        setLoading(false); // unblock nav immediately — profile loads in background
+        if (u) await fetchProfile(u.id);
         else setProfile(null);
       } catch {
-        // Any failure (network, invalid token, etc.) — treat as logged out
-        if (!cancelled) setProfile(null);
-      } finally {
-        clearTimeout(loadingTimer);
-        // Always clear loading — this runs even if getSession() throws
-        if (!cancelled) setLoading(false);
+        if (!cancelled) { setUser(null); setProfile(null); setLoading(false); }
       }
     }
 
@@ -72,9 +68,11 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (cancelled) return;
-      setUser(session?.user ?? null);
+      const u = session?.user ?? null;
+      setUser(u);
+      setLoading(false);
       try {
-        if (session?.user) await fetchProfile(session.user.id);
+        if (u) await fetchProfile(u.id);
         else setProfile(null);
       } catch {
         if (!cancelled) setProfile(null);
@@ -83,7 +81,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
     return () => {
       cancelled = true;
-      clearTimeout(loadingTimer);
       subscription.unsubscribe();
     };
   }, [supabase, fetchProfile]);

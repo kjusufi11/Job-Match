@@ -37,7 +37,12 @@ export default function Nav() {
   }, [profile?.id, supabase]);
 
   async function signOut() {
-    try { await Promise.race([supabase.auth.signOut(), new Promise(r => setTimeout(r, 3000))]); } catch {}
+    const uid = user?.id;
+    if (uid) {
+      try { localStorage.removeItem(`matcht_profile_draft_${uid}`); } catch {}
+      try { localStorage.removeItem(`matcht_profile_step_${uid}`); } catch {}
+    }
+    try { await Promise.race([fetch('/api/auth/signout', { method: 'POST' }), new Promise(r => setTimeout(r, 3000))]); } catch {}
     window.location.href = '/';
   }
 

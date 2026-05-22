@@ -281,51 +281,53 @@ function Progress({step,total,sections}:{step:number;total:number;sections:{labe
   </div>;
 }
 
-// ── Resume Upload ─────────────────────────────────────────────────────────────
-function ResumeUpload({onSkip}:{onSkip:()=>void}){
+// ── Resume Upload (inline Step 0) ─────────────────────────────────────────────
+function ResumeUpload(){
   const [dragging,setDragging]=useState(false);
   const [file,setFile]=useState<File|null>(null);
   const ref=useRef<HTMLInputElement>(null);
   function handleFile(f:File|null){if(f&&(f.type==='application/pdf'||f.name.endsWith('.docx')||f.name.endsWith('.doc')))setFile(f);}
-  return<div style={{background:C.bg,minHeight:'100vh',fontFamily:F,display:'flex',alignItems:'center',justifyContent:'center',padding:24}}>
-    <div style={{maxWidth:540,width:'100%'}}>
-      <div style={{display:'flex',alignItems:'center',gap:8,justifyContent:'center',marginBottom:28}}>
-        <div style={{width:30,height:30,borderRadius:7,background:C.teal,display:'flex',alignItems:'center',justifyContent:'center',fontWeight:800,fontSize:13,color:C.white}}>M</div>
-        <span style={{fontWeight:800,fontSize:17,color:C.slate,letterSpacing:-0.3}}>Matcht</span>
-      </div>
-      <Card style={{padding:'40px 36px'}}>
-        <div style={{textAlign:'center',marginBottom:32}}>
-          <div style={{fontSize:48,marginBottom:16}}>📄</div>
-          <h1 style={{fontSize:26,fontWeight:800,color:C.slate,margin:'0 0 12px',letterSpacing:-0.5,lineHeight:1.2}}>Got a resume?<br/>Let&apos;s use it one last time.</h1>
-          <p style={{fontSize:15,color:C.gray600,margin:0,lineHeight:1.7}}>Upload it and we&apos;ll pre-fill your profile automatically. After this, your Matcht profile <em>is</em> your resume — and it works for you around the clock.</p>
-        </div>
-        <div onDragOver={e=>{e.preventDefault();setDragging(true);}} onDragLeave={()=>setDragging(false)}
-          onDrop={e=>{e.preventDefault();setDragging(false);handleFile(e.dataTransfer.files[0]??null);}}
-          onClick={()=>ref.current?.click()}
-          style={{border:`2px dashed ${dragging?C.teal:file?C.green:C.gray200}`,borderRadius:12,padding:'32px 24px',textAlign:'center',cursor:'pointer',background:dragging?C.tealDim:file?C.greenDim:C.bg,transition:'all .2s',marginBottom:16}}>
-          <input ref={ref} type="file" accept=".pdf,.doc,.docx" onChange={e=>handleFile(e.target.files?.[0]??null)} style={{display:'none'}}/>
-          {file?<>
-            <div style={{fontSize:32,marginBottom:8}}>✅</div>
-            <div style={{fontWeight:700,fontSize:15,color:C.green,marginBottom:4}}>{file.name}</div>
-            <div style={{fontSize:13,color:C.gray400}}>Click to choose a different file</div>
-          </>:<>
-            <div style={{fontSize:32,marginBottom:10}}>📎</div>
-            <div style={{fontWeight:600,fontSize:15,color:C.slate,marginBottom:5}}>Drop your resume here</div>
-            <div style={{fontSize:13,color:C.gray400,marginBottom:8}}>or click to browse your files</div>
-            <div style={{display:'inline-block',background:C.gray100,borderRadius:20,padding:'4px 12px',fontSize:12,color:C.gray600}}>PDF, DOC, or DOCX · Max 10MB</div>
-          </>}
-        </div>
-        <button onClick={onSkip} style={{width:'100%',padding:'11px 0',borderRadius:9,background:'none',border:`1.5px solid ${C.border}`,color:C.gray600,fontWeight:600,fontSize:14,cursor:'pointer',fontFamily:F}}>
-          {file?'Skip — I\'ll fill it in manually':'I don\'t have a resume — start from scratch'}
-        </button>
-        <p style={{textAlign:'center',fontSize:12,color:C.gray400,marginTop:14,lineHeight:1.5}}>Your resume is used only to pre-fill your profile.<br/>It is never shared with employers.</p>
-      </Card>
+  return<div>
+    <div style={{textAlign:'center',marginBottom:28}}>
+      <div style={{fontSize:44,marginBottom:12}}>📄</div>
+      <h2 style={{fontSize:22,fontWeight:800,color:C.slate,margin:'0 0 10px',letterSpacing:-0.5,lineHeight:1.2}}>Got a resume? Let&apos;s use it one last time.</h2>
+      <p style={{fontSize:14,color:C.gray600,margin:0,lineHeight:1.7}}>Upload it and we&apos;ll pre-fill your profile. After this, your Matcht profile <em>is</em> your resume — working for you 24/7.</p>
     </div>
+    <div onDragOver={e=>{e.preventDefault();setDragging(true);}} onDragLeave={()=>setDragging(false)}
+      onDrop={e=>{e.preventDefault();setDragging(false);handleFile(e.dataTransfer.files[0]??null);}}
+      onClick={()=>ref.current?.click()}
+      style={{border:`2px dashed ${dragging?C.teal:file?C.green:C.gray200}`,borderRadius:12,padding:'28px 24px',textAlign:'center',cursor:'pointer',background:dragging?C.tealDim:file?C.greenDim:C.bg,transition:'all .2s',marginBottom:14}}>
+      <input ref={ref} type="file" accept=".pdf,.doc,.docx" onChange={e=>handleFile(e.target.files?.[0]??null)} style={{display:'none'}}/>
+      {file?<>
+        <div style={{fontSize:28,marginBottom:6}}>✅</div>
+        <div style={{fontWeight:700,fontSize:14,color:C.green,marginBottom:3}}>{file.name}</div>
+        <div style={{fontSize:12,color:C.gray400}}>Click to choose a different file</div>
+      </>:<>
+        <div style={{fontSize:28,marginBottom:8}}>📎</div>
+        <div style={{fontWeight:600,fontSize:14,color:C.slate,marginBottom:4}}>Drop your resume here</div>
+        <div style={{fontSize:12,color:C.gray400,marginBottom:6}}>or click to browse · PDF, DOC, DOCX</div>
+      </>}
+    </div>
+    <p style={{textAlign:'center',fontSize:11,color:C.gray400,margin:0,lineHeight:1.5}}>Used only to pre-fill your profile. Never shared with employers.</p>
   </div>;
 }
 
 // ── Section 1: Basic Info & Online Presence ───────────────────────────────────
-function S1({d,set,errors}:SecProps){return<>
+function S1({d,set,errors}:SecProps){
+  const [zipFetching,setZipFetching]=useState(false);
+  const [locationLocked,setLocationLocked]=useState(()=>d.zip.length===5&&/^\d{5}$/.test(d.zip)&&d.location.trim()!=='');
+  async function lookupZip(zip:string){
+    setZipFetching(true);
+    try{
+      const res=await fetch(`https://api.zippopotam.us/us/${zip}`);
+      if(!res.ok)return;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const j:any=await res.json();
+      const city=j.places?.[0]?.['place name'];const state=j.places?.[0]?.['state abbreviation'];
+      if(city&&state){set(x=>({...x,location:`${city}, ${state}`,zip}));setLocationLocked(true);}
+    }catch{}finally{setZipFetching(false);}
+  }
+  return<>
   <ST section="Section 1 of 9" title="Basic Information" sub="Contact details and your online presence. Used for matching, communication, and your public profile."/>
   <Div/>
   <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:16}}>
@@ -335,8 +337,24 @@ function S1({d,set,errors}:SecProps){return<>
   <div style={{marginBottom:16}}><FL required>Email address</FL><TI value={d.email} onChange={v=>set(x=>({...x,email:v}))} placeholder="jane@example.com" type="email"/><ErrMsg msg={errors?.email}/></div>
   <div style={{marginBottom:16}}><FL optional>Phone number</FL><TI value={d.phone} onChange={v=>set(x=>({...x,phone:v}))} placeholder="+1 (555) 000-0000"/></div>
   <div style={{display:'grid',gridTemplateColumns:'2fr 1fr',gap:12,marginBottom:16}}>
-    <div><FL required>City & state</FL><TI value={d.location} onChange={v=>set(x=>({...x,location:v}))} placeholder="Chicago, IL"/><ErrMsg msg={errors?.location}/></div>
-    <div><FL required>ZIP code</FL><TI value={d.zip} onChange={v=>set(x=>({...x,zip:v}))} placeholder="60601"/><ErrMsg msg={errors?.zip}/></div>
+    <div>
+      <FL required>City & state</FL>
+      {locationLocked?(
+        <div style={{display:'flex',alignItems:'center',gap:8}}>
+          <div style={{flex:1,padding:'11px 14px',borderRadius:8,background:C.gray100,border:`1.5px solid ${C.border}`,color:C.slate,fontSize:14,fontFamily:F,lineHeight:'1.2'}}>{d.location}</div>
+          <button onClick={()=>setLocationLocked(false)} style={{fontSize:12,color:C.teal,background:'none',border:`1px solid ${C.tealBorder}`,borderRadius:6,padding:'6px 10px',cursor:'pointer',fontFamily:F,fontWeight:600,whiteSpace:'nowrap'}}>Edit</button>
+        </div>
+      ):(
+        <TI value={d.location} onChange={v=>set(x=>({...x,location:v}))} placeholder="Chicago, IL"/>
+      )}
+      <ErrMsg msg={errors?.location}/>
+    </div>
+    <div>
+      <FL required>ZIP code</FL>
+      <TI value={d.zip} onChange={v=>{set(x=>({...x,zip:v}));if(v.length===5&&/^\d{5}$/.test(v))lookupZip(v);}} placeholder="60601"/>
+      {zipFetching&&<div style={{fontSize:11,color:C.teal,marginTop:3,fontFamily:F}}>Looking up city…</div>}
+      <ErrMsg msg={errors?.zip}/>
+    </div>
   </div>
   <Div label="Professional headline"/>
   <div style={{marginBottom:16}}>
@@ -753,8 +771,7 @@ export default function ProfileSurvey(){
   const supabase=useMemo(()=>createClient(),[]);
   const prefillDone=useRef(false);
 
-  const [showResume,setShowResume]=useState<boolean|null>(null);
-  const [step,setStep]=useState(1);
+  const [step,setStep]=useState(-1);
   const [data,setData]=useState<SurveyData>(INIT);
   const [saving,setSaving]=useState(false);
   const [saveError,setSaveError]=useState('');
@@ -770,24 +787,25 @@ export default function ProfileSurvey(){
   // Pre-fill from DB + restore localStorage draft
   useEffect(()=>{
     if(loading)return;
+    const uid=profile?.id??user?.id;
+
     if(!profile){
-      const uid=user?.id;
-      const hasSeen=uid?localStorage.getItem(`matcht_resume_seen_${uid}`)==='true':false;
-      setShowResume(!hasSeen);
-      // Restore draft/step even without a DB profile row (user hasn't hit Continue yet)
+      // No DB row yet — brand-new user
       if(uid){
         try{
+          const hasSeen=localStorage.getItem(`matcht_resume_seen_${uid}`)==='true';
+          if(!hasSeen){prefillDone.current=true;setStep(0);return;}
           const stepStr=localStorage.getItem(`matcht_profile_step_${uid}`);
-          if(stepStr){const n=parseInt(stepStr);if(n>1&&n<=total+1)setStep(n);}
+          if(stepStr){const n=parseInt(stepStr);if(n>=1&&n<=total+1)setStep(n);}
           const s=localStorage.getItem(`matcht_profile_draft_${uid}`);
           if(s){prefillDone.current=true;setData(JSON.parse(s) as SurveyData);return;}
         }catch{}
       }
-      prefillDone.current=true;return;
+      prefillDone.current=true;setStep(0);return;
     }
+
     setIsEdit(!!profile.profile_complete);
-    if(profile.profile_complete){setShowResume(false);}
-    else{const hasSeen=localStorage.getItem(`matcht_resume_seen_${profile.id}`)==='true';setShowResume(!hasSeen);}
+
     const fp:SurveyData={
       firstName:profile.first_name??profile.name?.split(' ')[0]??'',
       lastName:profile.last_name??profile.name?.split(' ').slice(1).join(' ')??'',
@@ -846,16 +864,23 @@ export default function ProfileSurvey(){
       stayReasons:Array.isArray(profile.stay_reasons)?profile.stay_reasons as string[]:[],
       referralSource:profile.referral_source??'',personalNote:profile.bio??'',
     };
-    if(!profile.profile_complete){
-      try{
-        const stepStr=localStorage.getItem(`matcht_profile_step_${profile.id}`);
-        if(stepStr){const n=parseInt(stepStr);if(n>1&&n<=total+1)setStep(n);}
-        const s=localStorage.getItem(`matcht_profile_draft_${profile.id}`);
-        if(s){prefillDone.current=true;setData(JSON.parse(s) as SurveyData);return;}
-      }catch{}
+
+    if(profile.profile_complete){
+      // Returning user with complete profile — edit mode, start at section 1
+      prefillDone.current=true;setStep(1);setData(fp);return;
     }
-    prefillDone.current=true;
-    setData(fp);
+
+    // Incomplete profile — check resume screen and restore draft/step
+    const id=profile.id;
+    const hasSeen=localStorage.getItem(`matcht_resume_seen_${id}`)==='true';
+    if(!hasSeen){prefillDone.current=true;setStep(0);return;}
+    try{
+      const stepStr=localStorage.getItem(`matcht_profile_step_${id}`);
+      if(stepStr){const n=parseInt(stepStr);if(n>=1&&n<=total+1)setStep(n);}
+      const s=localStorage.getItem(`matcht_profile_draft_${id}`);
+      if(s){prefillDone.current=true;setData(JSON.parse(s) as SurveyData);return;}
+    }catch{}
+    prefillDone.current=true;setData(fp);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   },[loading,profile?.id]);
 
@@ -874,23 +899,29 @@ export default function ProfileSurvey(){
   function go(n:number){
     setErrors({});setStep(n);window.scrollTo({top:0,behavior:'smooth'});
     const uid=profile?.id??user?.id;
-    if(uid)try{localStorage.setItem(`matcht_profile_step_${uid}`,String(n));}catch{}
+    if(uid)try{
+      if(n>=1)localStorage.setItem(`matcht_resume_seen_${uid}`,'true');
+      localStorage.setItem(`matcht_profile_step_${uid}`,String(n));
+    }catch{}
   }
 
   async function signOut(){
     const uid=profile?.id??user?.id;
-    if(uid){try{localStorage.removeItem(`matcht_profile_draft_${uid}`);}catch{}}
-    try{await Promise.race([supabase.auth.signOut(),new Promise(r=>setTimeout(r,3000))]);}catch{}
+    if(uid){
+      try{localStorage.removeItem(`matcht_profile_draft_${uid}`);}catch{}
+      try{localStorage.removeItem(`matcht_profile_step_${uid}`);}catch{}
+    }
+    try{await Promise.race([fetch('/api/auth/signout',{method:'POST'}),new Promise(r=>setTimeout(r,3000))]);}catch{}
     window.location.href='/';
   }
 
-  async function saveProgress(d:SurveyData){
+  async function saveProgress(d:SurveyData):Promise<boolean>{
     const uid=profile?.id??user?.id;
-    if(!uid)return;
-    setSavingSection(true);setSectionSaved(false);
+    if(!uid)return false;
+    setSavingSection(true);setSectionSaved(false);setSaveError('');
     try{
       const totalExp=deriveExpYears(d.jobs)||null;
-      await supabase.from('profiles').upsert({
+      const{error}=await supabase.from('profiles').upsert({
         id:uid,role:profile?.role??'seeker',
         name:`${d.firstName} ${d.lastName}`.trim(),
         first_name:d.firstName,last_name:d.lastName,
@@ -928,10 +959,14 @@ export default function ProfileSurvey(){
         bio:d.personalNote||null,profile_complete:profile?.profile_complete??false,
         updated_at:new Date().toISOString(),
       });
+      if(error)throw error;
       setSectionSaved(true);setTimeout(()=>setSectionSaved(false),3000);
       refreshProfile().catch(()=>{});
-    }catch{}
-    finally{setSavingSection(false);}
+      return true;
+    }catch(err:unknown){
+      setSaveError((err as Error)?.message||'Save failed. Check your connection and try again.');
+      return false;
+    }finally{setSavingSection(false);}
   }
 
   async function submit(){
@@ -996,7 +1031,7 @@ export default function ProfileSurvey(){
     }finally{setSaving(false);}
   }
 
-  if(loading||showResume===null){
+  if(loading||step<0){
     return<div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',minHeight:'80vh',fontFamily:F,gap:14}}>
       <div style={{width:28,height:28,borderRadius:6,background:C.teal,display:'flex',alignItems:'center',justifyContent:'center',fontWeight:800,fontSize:12,color:C.white}}>M</div>
       <span style={{fontSize:14,color:C.gray600}}>Loading your profile…</span>
@@ -1015,12 +1050,6 @@ export default function ProfileSurvey(){
     </div>
   );
 
-  if(showResume)return<ResumeUpload onSkip={()=>{
-    const uid=profile?.id??user?.id;
-    if(uid)try{localStorage.setItem(`matcht_resume_seen_${uid}`,'true');}catch{}
-    setShowResume(false);
-  }}/>;
-
   const SecComp=!isReview?SECTIONS[step-1]?.Comp:null;
 
   return(
@@ -1031,25 +1060,20 @@ export default function ProfileSurvey(){
         input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;background:${C.teal};cursor:pointer;border:none}
       `}</style>
 
-      {/* Sticky header */}
-      <div style={{background:C.white,borderBottom:`1px solid ${C.border}`,padding:'0 24px',height:54,display:'flex',alignItems:'center',justifyContent:'space-between',position:'sticky',top:0,zIndex:100,boxShadow:'0 1px 4px rgba(0,0,0,.04)'}}>
-        <div style={{display:'flex',alignItems:'center',gap:8}}>
-          <div style={{width:28,height:28,borderRadius:6,background:C.teal,display:'flex',alignItems:'center',justifyContent:'center',fontWeight:800,fontSize:12,color:C.white}}>M</div>
-          <span style={{fontWeight:800,fontSize:15,color:C.slate,letterSpacing:-0.3}}>Matcht</span>
-          <span style={{fontSize:12,color:C.gray400,marginLeft:2}}>/ Your Profile</span>
-        </div>
-        <div style={{display:'flex',alignItems:'center',gap:10}}>
-          {savingSection&&<span style={{fontSize:11,color:C.gray600,fontWeight:600,fontFamily:F}}>Saving…</span>}
-          {sectionSaved&&<span style={{fontSize:11,color:C.green,fontWeight:600,fontFamily:F}}>✓ Saved</span>}
-          {!savingSection&&!sectionSaved&&autoSaved&&<span style={{fontSize:11,color:C.gray400,fontWeight:500,fontFamily:F}}>✓ Draft saved</span>}
-          {saveError&&<span style={{fontSize:11,color:C.amber,fontWeight:600,fontFamily:F}}>⚠ Not saved</span>}
-          <span style={{fontSize:12,color:C.gray600,fontWeight:500,fontFamily:F}}>{isReview?'Review & submit':`${step} of ${total} · ${SECTIONS[step-1]?.label}`}</span>
-          {isEdit&&<button onClick={()=>setShowResume(true)} style={{fontSize:12,color:C.teal,background:'none',border:`1px solid ${C.tealBorder}`,borderRadius:6,padding:'4px 10px',cursor:'pointer',fontFamily:F,fontWeight:600,whiteSpace:'nowrap'}}>📄 Import resume</button>}
-        </div>
+      {/* Sticky progress header — no logo (Nav already has it) */}
+      <div style={{background:C.white,borderBottom:`1px solid ${C.border}`,padding:'0 20px',height:50,display:'flex',alignItems:'center',justifyContent:'flex-end',gap:12,position:'sticky',top:0,zIndex:100,boxShadow:'0 1px 4px rgba(0,0,0,.04)'}}>
+        {savingSection&&<span style={{fontSize:11,color:C.gray600,fontWeight:600,fontFamily:F}}>Saving…</span>}
+        {sectionSaved&&<span style={{fontSize:11,color:C.green,fontWeight:600,fontFamily:F}}>✓ Saved</span>}
+        {!savingSection&&!sectionSaved&&autoSaved&&<span style={{fontSize:11,color:C.gray400,fontWeight:500,fontFamily:F}}>✓ Draft saved</span>}
+        {saveError&&<span style={{fontSize:11,color:C.amber,fontWeight:600,fontFamily:F}}>⚠ Save failed</span>}
+        <span style={{fontSize:12,color:C.gray600,fontWeight:500,fontFamily:F}}>
+          {step===0?'Step 0 · Resume upload':isReview?'Review & submit':`${step} of ${total} · ${SECTIONS[step-1]?.label}`}
+        </span>
+        {isEdit&&step>0&&<button onClick={()=>go(0)} style={{fontSize:12,color:C.teal,background:'none',border:`1px solid ${C.tealBorder}`,borderRadius:6,padding:'4px 10px',cursor:'pointer',fontFamily:F,fontWeight:600,whiteSpace:'nowrap'}}>📄 Import resume</button>}
       </div>
 
-      {/* Section tab bar */}
-      <div style={{background:C.white,borderBottom:`1px solid ${C.border}`,overflowX:'auto'}}>
+      {/* Section tab bar — hidden on step 0 */}
+      {step>0&&<div style={{background:C.white,borderBottom:`1px solid ${C.border}`,overflowX:'auto'}}>
         <div style={{display:'flex',minWidth:'fit-content',padding:'0 12px'}}>
           {SECTIONS.map((s,i)=>{
             const n=i+1;const done2=n<step;const active=n===step&&!isReview;
@@ -1059,30 +1083,42 @@ export default function ProfileSurvey(){
           })}
           <button onClick={()=>go(total+1)} style={{padding:'10px 12px',border:'none',background:'none',borderBottom:`2.5px solid ${isReview?C.teal:'transparent'}`,color:isReview?C.teal:C.gray400,fontWeight:isReview?700:500,fontSize:12,cursor:'pointer',fontFamily:F,whiteSpace:'nowrap'}}>Review</button>
         </div>
-      </div>
+      </div>}
 
       {/* Content */}
       <div style={{maxWidth:680,margin:'28px auto 0',padding:'0 16px'}}>
-        <Progress step={step-1} total={total} sections={SECTIONS}/>
+        {step>0&&<Progress step={Math.max(0,step-1)} total={total} sections={SECTIONS}/>}
         <Card style={{marginBottom:14}}>
-          {!isReview&&Object.keys(errors).length>0&&<div style={{background:C.redDim,border:`1px solid ${C.red}`,borderRadius:9,padding:'12px 16px',marginBottom:20,fontSize:13,color:C.red,fontFamily:F,fontWeight:600}}>Please fill in the required fields highlighted below.</div>}
-          {isReview?<ReviewScreen data={data}/>:SecComp?<SecComp d={data} set={setData} errors={errors}/>:null}
+          {step===0&&<ResumeUpload/>}
+          {step>0&&!isReview&&Object.keys(errors).length>0&&<div style={{background:C.redDim,border:`1px solid ${C.red}`,borderRadius:9,padding:'12px 16px',marginBottom:20,fontSize:13,color:C.red,fontFamily:F,fontWeight:600}}>Please fill in the required fields highlighted below.</div>}
+          {step>0&&(isReview?<ReviewScreen data={data}/>:SecComp?<SecComp d={data} set={setData} errors={errors}/>:null)}
         </Card>
 
-        {saveError&&<div style={{background:C.amberDim,border:`1px solid ${C.amber}`,borderRadius:9,padding:'12px 16px',marginBottom:12,fontSize:13,color:C.amber,fontFamily:F,fontWeight:600}}>{saveError}</div>}
+        {saveError&&step>0&&<div style={{background:C.amberDim,border:`1px solid ${C.amber}`,borderRadius:9,padding:'12px 16px',marginBottom:12,fontSize:13,color:C.amber,fontFamily:F,fontWeight:600}}>{saveError}</div>}
 
         {/* Nav buttons */}
         <div style={{display:'flex',gap:10}}>
           {step>1&&<button onClick={()=>go(step-1)} style={{flex:1,padding:'13px 0',borderRadius:9,background:C.white,border:`1.5px solid ${C.border}`,color:C.gray600,fontWeight:600,fontSize:14,cursor:'pointer',fontFamily:F}}>← Back</button>}
-          {!isReview
-            ?<button onClick={()=>{const errs=validateSection(step,data);if(Object.keys(errs).length>0){setErrors(errs);window.scrollTo({top:0,behavior:'smooth'});return;}saveProgress(data).catch(()=>{});go(step+1);}} style={{flex:2,padding:'13px 0',borderRadius:9,background:C.teal,color:C.white,border:'none',fontWeight:700,fontSize:15,cursor:'pointer',fontFamily:F,boxShadow:`0 2px 12px ${C.teal}44`}}>
-                {step<total?'Continue →':'Review my profile →'}
+          {step===0
+            ?<button onClick={()=>go(1)} style={{flex:2,padding:'13px 0',borderRadius:9,background:C.teal,color:C.white,border:'none',fontWeight:700,fontSize:15,cursor:'pointer',fontFamily:F,boxShadow:`0 2px 12px ${C.teal}44`}}>
+                Fill in my profile manually →
               </button>
-            :<button onClick={submit} disabled={saving} style={{flex:2,padding:'13px 0',borderRadius:9,background:saving?C.gray400:C.teal,color:C.white,border:'none',fontWeight:700,fontSize:15,cursor:saving?'not-allowed':'pointer',fontFamily:F,boxShadow:saving?'none':`0 2px 12px ${C.teal}44`}}>
-                {saving?'Saving…':'Submit & go live →'}
-              </button>}
+            :!isReview
+              ?<button disabled={savingSection} onClick={async()=>{
+                  const errs=validateSection(step,data);
+                  if(Object.keys(errs).length>0){setErrors(errs);window.scrollTo({top:0,behavior:'smooth'});return;}
+                  const ok=await saveProgress(data);
+                  if(!ok)return;
+                  go(step+1);
+                }} style={{flex:2,padding:'13px 0',borderRadius:9,background:savingSection?C.gray400:C.teal,color:C.white,border:'none',fontWeight:700,fontSize:15,cursor:savingSection?'not-allowed':'pointer',fontFamily:F,boxShadow:savingSection?'none':`0 2px 12px ${C.teal}44`}}>
+                  {savingSection?'Saving…':step<total?'Continue →':'Review my profile →'}
+                </button>
+              :<button onClick={submit} disabled={saving} style={{flex:2,padding:'13px 0',borderRadius:9,background:saving?C.gray400:C.teal,color:C.white,border:'none',fontWeight:700,fontSize:15,cursor:saving?'not-allowed':'pointer',fontFamily:F,boxShadow:saving?'none':`0 2px 12px ${C.teal}44`}}>
+                  {saving?'Saving…':'Submit & go live →'}
+                </button>
+          }
         </div>
-        <p style={{textAlign:'center',fontSize:12,color:C.gray400,marginTop:10,fontFamily:F}}>Your answers auto-save as you go — you won&apos;t lose anything.</p>
+        {step>0&&<p style={{textAlign:'center',fontSize:12,color:C.gray400,marginTop:10,fontFamily:F}}>Saved to Supabase on every section. You won&apos;t lose anything.</p>}
       </div>
     </div>
   );
