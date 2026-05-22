@@ -980,11 +980,10 @@ export default function ProfileSurvey(){
     const uid=profile?.id??user?.id;
     if(!uid)return;
     setSaving(true);setSaveError('');
-    const timeoutP=new Promise<never>((_,rej)=>setTimeout(()=>rej(new Error('Save timed out after 10 seconds. Your data is saved locally — check your connection and try again.')),10000));
     try{
       const totalExp=deriveExpYears(data.jobs)||null;
-      const upsertP=supabase.from('profiles').upsert({
-        id:uid,role:profile?.role??'seeker',
+      const payload={
+        role:profile?.role??'seeker',
         name:`${data.firstName} ${data.lastName}`.trim(),
         first_name:data.firstName,last_name:data.lastName,
         phone:data.phone||null,location:data.location||null,zip:data.zip||null,
@@ -995,16 +994,14 @@ export default function ProfileSurvey(){
         veteran:data.veteran||null,disability:data.disability||null,
         summary:data.summary||null,
         accomplishments:data.accomplishments,
-        degrees:data.degrees,
-        certifications:data.certifications,
+        degrees:data.degrees,certifications:data.certifications,
         test_scores:data.testScores,
         jobs_history:data.jobs,title:data.jobs[0]?.title||null,total_exp:totalExp,
         volunteer:data.volunteer,
         gaps:data.gaps||null,emp_status:data.empStatus||null,
         skills:data.skills,seniority:data.seniority||null,
         languages:data.languages.filter(l=>l.language),
-        projects:data.projects,awards:data.awards,
-        industries:data.industries,
+        projects:data.projects,awards:data.awards,industries:data.industries,
         target_titles:data.targetTitles,
         ideal_salary:data.idealSalary*1000,min_salary:data.minSalary*1000,
         salary_min:data.minSalary*1000,salary_max:data.idealSalary*1000,
@@ -1015,17 +1012,20 @@ export default function ProfileSurvey(){
         travel:data.travel||null,company_size:data.companySize,
         target_industries:data.targetIndustries,target_culture:data.targetCulture,
         mgmt_style:data.mgmtStyle||null,feedback_pref:data.feedbackStyle||null,
-        motivators:data.motivators,
-        personality:data.personality,
+        motivators:data.motivators,personality:data.personality,
         comm_style:data.commStyle||null,mistake_style:data.mistakeStyle||null,
         primary_goal:data.primaryGoal||null,five_year:data.fiveYear||null,
         search_intensity:data.searchIntensity||null,stay_reasons:data.stayReasons,
         referral_source:data.referralSource||null,
         bio:data.personalNote||null,profile_complete:true,
-        updated_at:new Date().toISOString(),
-      });
-      const {error}=await Promise.race([upsertP,timeoutP]);
-      if(error)throw error;
+      };
+      const timeoutP=new Promise<never>((_,rej)=>setTimeout(()=>rej(new Error('Save timed out. Your data is saved locally — please try again.')),15000));
+      const fetchP=fetch('/api/profile/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+      const res=await Promise.race([fetchP,timeoutP]);
+      if(!res.ok){
+        const j=await res.json().catch(()=>({})) as {error?:string};
+        throw new Error(j.error||`Server error ${res.status}`);
+      }
       fetch('/api/match-scores',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({seekerId:uid})}).catch(()=>{});
       if(!profile?.profile_complete){
         fetch('/api/email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'seeker-welcome',seekerId:uid})}).catch(()=>{});
