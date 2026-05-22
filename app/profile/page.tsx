@@ -872,7 +872,8 @@ export default function ProfileSurvey(){
 
     // Incomplete profile — check resume screen and restore draft/step
     const id=profile.id;
-    const hasSeen=localStorage.getItem(`matcht_resume_seen_${id}`)==='true';
+    // Skip resume page if localStorage flag is set OR if profile already has data in DB
+    const hasSeen=localStorage.getItem(`matcht_resume_seen_${id}`)==='true'||!!(profile.first_name||profile.headline||profile.summary);
     if(!hasSeen){prefillDone.current=true;setStep(0);return;}
     try{
       const stepStr=localStorage.getItem(`matcht_profile_step_${id}`);
@@ -994,8 +995,11 @@ export default function ProfileSurvey(){
       if(!profile?.profile_complete){
         fetch('/api/email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'seeker-welcome',seekerId:uid})}).catch(()=>{});
       }
-      refreshProfile().catch(()=>{});
+      // Await refresh so dashboard sees profile_complete=true before user navigates there
+      await refreshProfile().catch(()=>{});
       try{localStorage.removeItem(`matcht_profile_draft_${uid}`);}catch{}
+      try{localStorage.removeItem(`matcht_profile_step_${uid}`);}catch{}
+      try{localStorage.removeItem(`matcht_resume_seen_${uid}`);}catch{}
       setDone(true);
     }catch(err:unknown){
       setSaveError((err as Error)?.message||'Save failed. Your answers are saved locally — please try again.');
