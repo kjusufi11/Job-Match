@@ -921,7 +921,8 @@ export default function ProfileSurvey(){
     setSavingSection(true);setSectionSaved(false);setSaveError('');
     try{
       const totalExp=deriveExpYears(d.jobs)||null;
-      const{error}=await supabase.from('profiles').upsert({
+      const timeoutP=new Promise<never>((_,rej)=>setTimeout(()=>rej(new Error('Save timed out. Your data is saved locally.')),8000));
+      const upsertP=supabase.from('profiles').upsert({
         id:uid,role:profile?.role??'seeker',
         name:`${d.firstName} ${d.lastName}`.trim(),
         first_name:d.firstName,last_name:d.lastName,
@@ -959,6 +960,7 @@ export default function ProfileSurvey(){
         bio:d.personalNote||null,profile_complete:profile?.profile_complete??false,
         updated_at:new Date().toISOString(),
       });
+      const{error}=await Promise.race([upsertP,timeoutP]);
       if(error)throw error;
       setSectionSaved(true);setTimeout(()=>setSectionSaved(false),3000);
       refreshProfile().catch(()=>{});
@@ -1104,14 +1106,13 @@ export default function ProfileSurvey(){
                 Fill in my profile manually →
               </button>
             :!isReview
-              ?<button disabled={savingSection} onClick={async()=>{
+              ?<button onClick={()=>{
                   const errs=validateSection(step,data);
                   if(Object.keys(errs).length>0){setErrors(errs);window.scrollTo({top:0,behavior:'smooth'});return;}
-                  const ok=await saveProgress(data);
-                  if(!ok)return;
+                  saveProgress(data).catch(()=>{});
                   go(step+1);
-                }} style={{flex:2,padding:'13px 0',borderRadius:9,background:savingSection?C.gray400:C.teal,color:C.white,border:'none',fontWeight:700,fontSize:15,cursor:savingSection?'not-allowed':'pointer',fontFamily:F,boxShadow:savingSection?'none':`0 2px 12px ${C.teal}44`}}>
-                  {savingSection?'Saving…':step<total?'Continue →':'Review my profile →'}
+                }} style={{flex:2,padding:'13px 0',borderRadius:9,background:C.teal,color:C.white,border:'none',fontWeight:700,fontSize:15,cursor:'pointer',fontFamily:F,boxShadow:`0 2px 12px ${C.teal}44`}}>
+                  {step<total?'Continue →':'Review my profile →'}
                 </button>
               :<button onClick={submit} disabled={saving} style={{flex:2,padding:'13px 0',borderRadius:9,background:saving?C.gray400:C.teal,color:C.white,border:'none',fontWeight:700,fontSize:15,cursor:saving?'not-allowed':'pointer',fontFamily:F,boxShadow:saving?'none':`0 2px 12px ${C.teal}44`}}>
                   {saving?'Saving…':'Submit & go live →'}
