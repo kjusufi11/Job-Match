@@ -880,7 +880,7 @@ export default function ProfileSurvey(){
       const s=localStorage.getItem(`matcht_profile_draft_${id}`);
       if(s){prefillDone.current=true;setData(JSON.parse(s) as SurveyData);return;}
     }catch{}
-    prefillDone.current=true;setData(fp);
+    prefillDone.current=true;setStep(1);setData(fp);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   },[loading,profile?.id]);
 
