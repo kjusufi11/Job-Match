@@ -921,9 +921,8 @@ export default function ProfileSurvey(){
     setSavingSection(true);setSectionSaved(false);setSaveError('');
     try{
       const totalExp=deriveExpYears(d.jobs)||null;
-      const timeoutP=new Promise<never>((_,rej)=>setTimeout(()=>rej(new Error('Save timed out. Your data is saved locally.')),8000));
-      const upsertP=supabase.from('profiles').upsert({
-        id:uid,role:profile?.role??'seeker',
+      const payload={
+        role:profile?.role??'seeker',
         name:`${d.firstName} ${d.lastName}`.trim(),
         first_name:d.firstName,last_name:d.lastName,
         phone:d.phone||null,location:d.location||null,zip:d.zip||null,
@@ -958,10 +957,14 @@ export default function ProfileSurvey(){
         search_intensity:d.searchIntensity||null,stay_reasons:d.stayReasons,
         referral_source:d.referralSource||null,
         bio:d.personalNote||null,profile_complete:profile?.profile_complete??false,
-        updated_at:new Date().toISOString(),
-      });
-      const{error}=await Promise.race([upsertP,timeoutP]);
-      if(error)throw error;
+      };
+      const timeoutP=new Promise<never>((_,rej)=>setTimeout(()=>rej(new Error('Save timed out. Your data is saved locally.')),8000));
+      const fetchP=fetch('/api/profile/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+      const res=await Promise.race([fetchP,timeoutP]);
+      if(!res.ok){
+        const j=await res.json().catch(()=>({})) as {error?:string};
+        throw new Error(j.error||`Server error ${res.status}`);
+      }
       setSectionSaved(true);setTimeout(()=>setSectionSaved(false),3000);
       refreshProfile().catch(()=>{});
       return true;
