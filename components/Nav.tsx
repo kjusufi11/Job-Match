@@ -38,7 +38,7 @@ export default function Nav() {
 
   async function signOut() {
     await supabase.auth.signOut();
-    router.push('/');
+    window.location.href = '/';
   }
 
   if (isAdmin) return null;

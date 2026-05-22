@@ -761,15 +761,22 @@ export default function ProfileSurvey(){
   const [isEdit,setIsEdit]=useState(false);
   const [autoSaved,setAutoSaved]=useState(false);
   const [errors,setErrors]=useState<Record<string,string>>({});
+  const [savingSection,setSavingSection]=useState(false);
+  const [sectionSaved,setSectionSaved]=useState(false);
   const total=SECTIONS.length;
   const isReview=step>total;
 
   // Pre-fill from DB + restore localStorage draft
   useEffect(()=>{
     if(loading)return;
-    if(!profile){setShowResume(true);return;}
+    if(!profile){
+      const uid=user?.id;
+      const hasSeen=uid?localStorage.getItem(`matcht_resume_seen_${uid}`)==='true':false;
+      setShowResume(!hasSeen);return;
+    }
     setIsEdit(!!profile.profile_complete);
-    setShowResume(!profile.profile_complete);
+    if(profile.profile_complete){setShowResume(false);}
+    else{const hasSeen=localStorage.getItem(`matcht_resume_seen_${profile.id}`)==='true';setShowResume(!hasSeen);}
     const fp:SurveyData={
       firstName:profile.first_name??profile.name?.split(' ')[0]??'',
       lastName:profile.last_name??profile.name?.split(' ').slice(1).join(' ')??'',
@@ -829,7 +836,12 @@ export default function ProfileSurvey(){
       referralSource:profile.referral_source??'',personalNote:profile.bio??'',
     };
     if(!profile.profile_complete){
-      try{const s=localStorage.getItem(`matcht_profile_draft_${profile.id}`);if(s){setData(JSON.parse(s) as SurveyData);return;}}catch{}
+      try{
+        const stepStr=localStorage.getItem(`matcht_profile_step_${profile.id}`);
+        if(stepStr){const n=parseInt(stepStr);if(n>1&&n<=total+1)setStep(n);}
+        const s=localStorage.getItem(`matcht_profile_draft_${profile.id}`);
+        if(s){setData(JSON.parse(s) as SurveyData);return;}
+      }catch{}
     }
     setData(fp);
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -846,13 +858,66 @@ export default function ProfileSurvey(){
   // eslint-disable-next-line react-hooks/exhaustive-deps
   },[data]);
 
-  function go(n:number){setErrors({});setStep(n);window.scrollTo({top:0,behavior:'smooth'});}
+  function go(n:number){
+    setErrors({});setStep(n);window.scrollTo({top:0,behavior:'smooth'});
+    const uid=profile?.id??user?.id;
+    if(uid)try{localStorage.setItem(`matcht_profile_step_${uid}`,String(n));}catch{}
+  }
 
   async function signOut(){
     const uid=profile?.id??user?.id;
     if(uid){try{localStorage.removeItem(`matcht_profile_draft_${uid}`);}catch{}}
     await supabase.auth.signOut();
-    router.push('/');
+    window.location.href='/';
+  }
+
+  async function saveProgress(d:SurveyData){
+    const uid=profile?.id??user?.id;
+    if(!uid)return;
+    setSavingSection(true);setSectionSaved(false);
+    try{
+      const totalExp=deriveExpYears(d.jobs)||null;
+      await supabase.from('profiles').upsert({
+        id:uid,role:profile?.role??'seeker',
+        name:`${d.firstName} ${d.lastName}`.trim(),
+        first_name:d.firstName,last_name:d.lastName,
+        phone:d.phone||null,location:d.location||null,zip:d.zip||null,
+        work_auth:d.workAuth||null,
+        headline:d.headline||null,linkedin:d.linkedin||null,
+        website:d.website||null,other_link:d.otherLink||null,
+        gender:d.gender||null,race:d.race||null,
+        veteran:d.veteran||null,disability:d.disability||null,
+        summary:d.summary||null,
+        accomplishments:d.accomplishments,
+        degrees:d.degrees,certifications:d.certifications,
+        test_scores:d.testScores,
+        jobs_history:d.jobs,title:d.jobs[0]?.title||null,total_exp:totalExp,
+        volunteer:d.volunteer,
+        gaps:d.gaps||null,emp_status:d.empStatus||null,
+        skills:d.skills,seniority:d.seniority||null,
+        languages:d.languages.filter(l=>l.language),
+        projects:d.projects,awards:d.awards,industries:d.industries,
+        target_titles:d.targetTitles,
+        ideal_salary:d.idealSalary*1000,min_salary:d.minSalary*1000,
+        salary_min:d.minSalary*1000,salary_max:d.idealSalary*1000,
+        salary_label:`$${d.minSalary}k–$${d.idealSalary}k`,
+        remote_preference:d.remotePreference||null,max_commute:d.maxCommute,
+        employment_type:d.employmentType,availability:d.availability||null,
+        relocation:d.relocation||null,relocation_regions:d.relocationRegions||null,
+        travel:d.travel||null,company_size:d.companySize,
+        target_industries:d.targetIndustries,target_culture:d.targetCulture,
+        mgmt_style:d.mgmtStyle||null,feedback_pref:d.feedbackStyle||null,
+        motivators:d.motivators,personality:d.personality,
+        comm_style:d.commStyle||null,mistake_style:d.mistakeStyle||null,
+        primary_goal:d.primaryGoal||null,five_year:d.fiveYear||null,
+        search_intensity:d.searchIntensity||null,stay_reasons:d.stayReasons,
+        referral_source:d.referralSource||null,
+        bio:d.personalNote||null,profile_complete:profile?.profile_complete??false,
+        updated_at:new Date().toISOString(),
+      });
+      setSectionSaved(true);setTimeout(()=>setSectionSaved(false),3000);
+    }catch{}
+    finally{setSavingSection(false);}
   }
 
   async function submit(){
@@ -936,7 +1001,11 @@ export default function ProfileSurvey(){
     </div>
   );
 
-  if(showResume)return<ResumeUpload onSkip={()=>setShowResume(false)}/>;
+  if(showResume)return<ResumeUpload onSkip={()=>{
+    const uid=profile?.id??user?.id;
+    if(uid)try{localStorage.setItem(`matcht_resume_seen_${uid}`,'true');}catch{}
+    setShowResume(false);
+  }}/>;
 
   const SecComp=!isReview?SECTIONS[step-1]?.Comp:null;
 
@@ -956,11 +1025,12 @@ export default function ProfileSurvey(){
           <span style={{fontSize:12,color:C.gray400,marginLeft:2}}>/ Your Profile</span>
         </div>
         <div style={{display:'flex',alignItems:'center',gap:10}}>
-          {autoSaved&&<span style={{fontSize:11,color:C.green,fontWeight:600,fontFamily:F}}>✓ Saved</span>}
+          {savingSection&&<span style={{fontSize:11,color:C.gray600,fontWeight:600,fontFamily:F}}>Saving…</span>}
+          {sectionSaved&&<span style={{fontSize:11,color:C.green,fontWeight:600,fontFamily:F}}>✓ Saved</span>}
+          {!savingSection&&!sectionSaved&&autoSaved&&<span style={{fontSize:11,color:C.gray400,fontWeight:500,fontFamily:F}}>✓ Draft saved</span>}
           {saveError&&<span style={{fontSize:11,color:C.amber,fontWeight:600,fontFamily:F}}>⚠ Not saved</span>}
           <span style={{fontSize:12,color:C.gray600,fontWeight:500,fontFamily:F}}>{isReview?'Review & submit':`${step} of ${total} · ${SECTIONS[step-1]?.label}`}</span>
           {isEdit&&<button onClick={()=>setShowResume(true)} style={{fontSize:12,color:C.teal,background:'none',border:`1px solid ${C.tealBorder}`,borderRadius:6,padding:'4px 10px',cursor:'pointer',fontFamily:F,fontWeight:600,whiteSpace:'nowrap'}}>📄 Import resume</button>}
-          <button onClick={signOut} style={{fontSize:12,color:C.gray600,background:'none',border:`1px solid ${C.border}`,borderRadius:6,padding:'4px 10px',cursor:'pointer',fontFamily:F,fontWeight:500,whiteSpace:'nowrap'}}>Sign out</button>
         </div>
       </div>
 
@@ -991,7 +1061,7 @@ export default function ProfileSurvey(){
         <div style={{display:'flex',gap:10}}>
           {step>1&&<button onClick={()=>go(step-1)} style={{flex:1,padding:'13px 0',borderRadius:9,background:C.white,border:`1.5px solid ${C.border}`,color:C.gray600,fontWeight:600,fontSize:14,cursor:'pointer',fontFamily:F}}>← Back</button>}
           {!isReview
-            ?<button onClick={()=>{const errs=validateSection(step,data);if(Object.keys(errs).length>0){setErrors(errs);window.scrollTo({top:0,behavior:'smooth'});return;}go(step+1);}} style={{flex:2,padding:'13px 0',borderRadius:9,background:C.teal,color:C.white,border:'none',fontWeight:700,fontSize:15,cursor:'pointer',fontFamily:F,boxShadow:`0 2px 12px ${C.teal}44`}}>
+            ?<button onClick={()=>{const errs=validateSection(step,data);if(Object.keys(errs).length>0){setErrors(errs);window.scrollTo({top:0,behavior:'smooth'});return;}saveProgress(data).catch(()=>{});go(step+1);}} style={{flex:2,padding:'13px 0',borderRadius:9,background:C.teal,color:C.white,border:'none',fontWeight:700,fontSize:15,cursor:'pointer',fontFamily:F,boxShadow:`0 2px 12px ${C.teal}44`}}>
                 {step<total?'Continue →':'Review my profile →'}
               </button>
             :<button onClick={submit} disabled={saving} style={{flex:2,padding:'13px 0',borderRadius:9,background:saving?C.gray400:C.teal,color:C.white,border:'none',fontWeight:700,fontSize:15,cursor:saving?'not-allowed':'pointer',fontFamily:F,boxShadow:saving?'none':`0 2px 12px ${C.teal}44`}}>
