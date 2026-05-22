@@ -966,7 +966,9 @@ export default function ProfileSurvey(){
       refreshProfile().catch(()=>{});
       return true;
     }catch(err:unknown){
-      setSaveError((err as Error)?.message||'Save failed. Check your connection and try again.');
+      const msg=(err as {message?:string})?.message||'Save failed. Check your connection and try again.';
+      console.error('[saveProgress] error:', err);
+      setSaveError(msg);
       return false;
     }finally{setSavingSection(false);}
   }
@@ -1067,7 +1069,7 @@ export default function ProfileSurvey(){
         {savingSection&&<span style={{fontSize:11,color:C.gray600,fontWeight:600,fontFamily:F}}>Saving…</span>}
         {sectionSaved&&<span style={{fontSize:11,color:C.green,fontWeight:600,fontFamily:F}}>✓ Saved</span>}
         {!savingSection&&!sectionSaved&&autoSaved&&<span style={{fontSize:11,color:C.gray400,fontWeight:500,fontFamily:F}}>✓ Draft saved</span>}
-        {saveError&&<span style={{fontSize:11,color:C.amber,fontWeight:600,fontFamily:F}}>⚠ Save failed</span>}
+        {saveError&&<span style={{fontSize:11,color:C.amber,fontWeight:600,fontFamily:F}}>⚠ {saveError}</span>}
         <span style={{fontSize:12,color:C.gray600,fontWeight:500,fontFamily:F}}>
           {step===0?'Step 0 · Resume upload':isReview?'Review & submit':`${step} of ${total} · ${SECTIONS[step-1]?.label}`}
         </span>
