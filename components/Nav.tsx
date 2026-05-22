@@ -37,7 +37,7 @@ export default function Nav() {
   }, [profile?.id, supabase]);
 
   async function signOut() {
-    await supabase.auth.signOut();
+    try { await Promise.race([supabase.auth.signOut(), new Promise(r => setTimeout(r, 3000))]); } catch {}
     window.location.href = '/';
   }
 

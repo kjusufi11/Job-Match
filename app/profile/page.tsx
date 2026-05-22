@@ -751,6 +751,7 @@ export default function ProfileSurvey(){
   const {user,profile,loading,refreshProfile}=useUser();
   const router=useRouter();
   const supabase=useMemo(()=>createClient(),[]);
+  const prefillDone=useRef(false);
 
   const [showResume,setShowResume]=useState<boolean|null>(null);
   const [step,setStep]=useState(1);
@@ -772,7 +773,17 @@ export default function ProfileSurvey(){
     if(!profile){
       const uid=user?.id;
       const hasSeen=uid?localStorage.getItem(`matcht_resume_seen_${uid}`)==='true':false;
-      setShowResume(!hasSeen);return;
+      setShowResume(!hasSeen);
+      // Restore draft/step even without a DB profile row (user hasn't hit Continue yet)
+      if(uid){
+        try{
+          const stepStr=localStorage.getItem(`matcht_profile_step_${uid}`);
+          if(stepStr){const n=parseInt(stepStr);if(n>1&&n<=total+1)setStep(n);}
+          const s=localStorage.getItem(`matcht_profile_draft_${uid}`);
+          if(s){prefillDone.current=true;setData(JSON.parse(s) as SurveyData);return;}
+        }catch{}
+      }
+      prefillDone.current=true;return;
     }
     setIsEdit(!!profile.profile_complete);
     if(profile.profile_complete){setShowResume(false);}
@@ -840,15 +851,17 @@ export default function ProfileSurvey(){
         const stepStr=localStorage.getItem(`matcht_profile_step_${profile.id}`);
         if(stepStr){const n=parseInt(stepStr);if(n>1&&n<=total+1)setStep(n);}
         const s=localStorage.getItem(`matcht_profile_draft_${profile.id}`);
-        if(s){setData(JSON.parse(s) as SurveyData);return;}
+        if(s){prefillDone.current=true;setData(JSON.parse(s) as SurveyData);return;}
       }catch{}
     }
+    prefillDone.current=true;
     setData(fp);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   },[loading,profile?.id]);
 
-  // Auto-save to localStorage (800ms debounce)
+  // Auto-save to localStorage (800ms debounce) — only after pre-fill has run
   useEffect(()=>{
+    if(!prefillDone.current)return;
     const uid=profile?.id??user?.id;
     if(!uid)return;
     const t=setTimeout(()=>{
@@ -867,7 +880,7 @@ export default function ProfileSurvey(){
   async function signOut(){
     const uid=profile?.id??user?.id;
     if(uid){try{localStorage.removeItem(`matcht_profile_draft_${uid}`);}catch{}}
-    await supabase.auth.signOut();
+    try{await Promise.race([supabase.auth.signOut(),new Promise(r=>setTimeout(r,3000))]);}catch{}
     window.location.href='/';
   }
 
@@ -916,6 +929,7 @@ export default function ProfileSurvey(){
         updated_at:new Date().toISOString(),
       });
       setSectionSaved(true);setTimeout(()=>setSectionSaved(false),3000);
+      refreshProfile().catch(()=>{});
     }catch{}
     finally{setSavingSection(false);}
   }
