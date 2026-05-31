@@ -44,6 +44,7 @@ type SurveyData = {
 };
 type SetData  = React.Dispatch<React.SetStateAction<SurveyData>>;
 type SecProps = { d:SurveyData; set:SetData; errors?:Record<string,string> };
+type SaveEntry = { section:string; status:'saved'|'failed'|'timeout'; msg:string; time:string };
 
 const BD:Degree   = { level:'',field:'',university:'',gradYear:'',current:false,gpa:'',activities:'' };
 const BJ:WorkJob  = { company:'',title:'',location:'',startMonth:'',startYear:'',endMonth:'',endYear:'',current:false,employmentType:'',description:'',accomplishments:['','',''],reasonForLeaving:'' };
@@ -782,6 +783,7 @@ export default function ProfileSurvey(){
   const [savingSection,setSavingSection]=useState(false);
   const [sectionSaved,setSectionSaved]=useState(false);
   const [showDraftBanner,setShowDraftBanner]=useState(false);
+  const [saveLog,setSaveLog]=useState<SaveEntry[]>([]);
   const total=SECTIONS.length;
   const isReview=step>total;
 
@@ -920,74 +922,98 @@ export default function ProfileSurvey(){
   async function saveProgress(d:SurveyData):Promise<boolean>{
     const uid=profile?.id??user?.id;
     if(!uid)return false;
+    const sectionLabel=isReview?'Review':(SECTIONS[step-1]?.label??`Section ${step}`);
+    const saveTime=new Date().toLocaleTimeString();
+    const role=profile?.role??'seeker';
     setSectionSaved(false);
     try{
-      const totalExp=deriveExpYears(d.jobs)||null;
-      const payload={
-        role:profile?.role??'seeker',
-        name:`${d.firstName} ${d.lastName}`.trim(),
-        first_name:d.firstName,last_name:d.lastName,
-        phone:d.phone||null,location:d.location||null,zip:d.zip||null,
-        work_auth:d.workAuth||null,
-        headline:d.headline||null,linkedin:d.linkedin||null,
-        website:d.website||null,other_link:d.otherLink||null,
-        gender:d.gender||null,race:d.race||null,
-        veteran:d.veteran||null,disability:d.disability||null,
-        summary:d.summary||null,
-        accomplishments:d.accomplishments,
-        degrees:d.degrees,certifications:d.certifications,
-        test_scores:d.testScores,
-        jobs_history:d.jobs,title:d.jobs[0]?.title||null,total_exp:totalExp,
-        volunteer:d.volunteer,
-        gaps:d.gaps||null,emp_status:d.empStatus||null,
-        skills:d.skills,seniority:d.seniority||null,
-        languages:d.languages.filter(l=>l.language),
-        projects:d.projects,awards:d.awards,industries:d.industries,
-        target_titles:d.targetTitles,
-        ideal_salary:d.idealSalary*1000,min_salary:d.minSalary*1000,
-        salary_min:d.minSalary*1000,salary_max:d.idealSalary*1000,
-        salary_label:`$${d.minSalary}k–$${d.idealSalary}k`,
-        remote_preference:d.remotePreference||null,max_commute:d.maxCommute,
-        employment_type:d.employmentType,availability:d.availability||null,
-        relocation:d.relocation||null,relocation_regions:d.relocationRegions||null,
-        travel:d.travel||null,company_size:d.companySize,
-        target_industries:d.targetIndustries,target_culture:d.targetCulture,
-        mgmt_style:d.mgmtStyle||null,feedback_pref:d.feedbackStyle||null,
-        motivators:d.motivators,personality:d.personality,
-        comm_style:d.commStyle||null,mistake_style:d.mistakeStyle||null,
-        primary_goal:d.primaryGoal||null,five_year:d.fiveYear||null,
-        search_intensity:d.searchIntensity||null,stay_reasons:d.stayReasons,
-        referral_source:d.referralSource||null,
-        bio:d.personalNote||null,profile_complete:profile?.profile_complete??false,
-      };
-      const body=JSON.stringify(payload);
-      console.log('[saveProgress] payload size:',body.length,'bytes, step:',step);
-      const timeoutP=new Promise<never>((_,rej)=>setTimeout(()=>rej(new Error('Save timed out. Your data is saved locally.')),8000));
-      const fetchP=fetch('/api/profile/save',{method:'POST',headers:{'Content-Type':'application/json'},body});
-      const res=await Promise.race([fetchP,timeoutP]);
-      if(!res.ok){
-        const j=await res.json().catch(()=>({})) as {error?:string};
-        throw new Error(j.error||`Server error ${res.status}`);
+      // Section-specific payloads — only the fields for THIS section.
+      // Smaller payloads, faster DB writes, and isolated failures.
+      // BUG FIX: total_exp was a float (e.g. 5.2) but the DB column is integer.
+      //          Use Math.round() to avoid "invalid input syntax for type integer" errors.
+      const base={id:uid,role};
+      let sectionPayload:Record<string,unknown>;
+      if(step===1){
+        sectionPayload={...base,
+          name:`${d.firstName} ${d.lastName}`.trim(),
+          first_name:d.firstName,last_name:d.lastName,
+          phone:d.phone||null,location:d.location||null,zip:d.zip||null,
+          work_auth:d.workAuth||null,headline:d.headline||null,
+          linkedin:d.linkedin||null,website:d.website||null,other_link:d.otherLink||null,
+          gender:d.gender||null,race:d.race||null,veteran:d.veteran||null,disability:d.disability||null,
+        };
+      }else if(step===2){
+        sectionPayload={...base,summary:d.summary||null,accomplishments:d.accomplishments};
+      }else if(step===3){
+        sectionPayload={...base,degrees:d.degrees,certifications:d.certifications,test_scores:d.testScores};
+      }else if(step===4){
+        sectionPayload={...base,
+          jobs_history:d.jobs,title:d.jobs[0]?.title||null,
+          total_exp:Math.round(deriveExpYears(d.jobs))||null,
+          volunteer:d.volunteer,gaps:d.gaps||null,emp_status:d.empStatus||null,
+        };
+      }else if(step===5){
+        sectionPayload={...base,
+          skills:d.skills,seniority:d.seniority||null,
+          languages:d.languages.filter(l=>l.language),
+          projects:d.projects,awards:d.awards,industries:d.industries,
+        };
+      }else if(step===6){
+        sectionPayload={...base,
+          target_titles:d.targetTitles,
+          ideal_salary:d.idealSalary*1000,min_salary:d.minSalary*1000,
+          salary_min:d.minSalary*1000,salary_max:d.idealSalary*1000,
+          salary_label:`$${d.minSalary}k–$${d.idealSalary}k`,
+          remote_preference:d.remotePreference||null,max_commute:d.maxCommute,
+          employment_type:d.employmentType,availability:d.availability||null,
+          relocation:d.relocation||null,relocation_regions:d.relocationRegions||null,
+          travel:d.travel||null,company_size:d.companySize,target_industries:d.targetIndustries,
+        };
+      }else if(step===7){
+        sectionPayload={...base,target_culture:d.targetCulture,mgmt_style:d.mgmtStyle||null,feedback_pref:d.feedbackStyle||null,motivators:d.motivators};
+      }else if(step===8){
+        sectionPayload={...base,personality:d.personality,comm_style:d.commStyle||null,mistake_style:d.mistakeStyle||null};
+      }else if(step===9){
+        sectionPayload={...base,primary_goal:d.primaryGoal||null,five_year:d.fiveYear||null,search_intensity:d.searchIntensity||null,stay_reasons:d.stayReasons,referral_source:d.referralSource||null,bio:d.personalNote||null};
+      }else{
+        // Fallback: minimal base — shouldn't normally be hit
+        sectionPayload=base;
       }
+
+      const bodyStr=JSON.stringify(sectionPayload);
+      console.log('[saveProgress]',sectionLabel,'— payload:',bodyStr.length,'bytes, step:',step);
+
+      // Direct client-side upsert — eliminates the API route round trip and the
+      // supabase.auth.getUser() network call that was the primary latency source.
+      const timeoutP=new Promise<never>((_,rej)=>setTimeout(()=>rej(new Error('Save timed out. Your data is saved locally.')),8000));
+      const upsertP=supabase.from('profiles').upsert(sectionPayload);
+      const {error:upsertErr}=await Promise.race([upsertP,timeoutP]);
+      if(upsertErr)throw new Error(upsertErr.message);
+
       setSectionSaved(true);setSaveError('');setTimeout(()=>setSectionSaved(false),3000);
+      setSaveLog(prev=>[{section:sectionLabel,status:'saved',msg:'',time:saveTime},...prev].slice(0,20));
       refreshProfile().catch(()=>{});
       return true;
     }catch(err:unknown){
       const msg=(err as {message?:string})?.message||'Save failed. Check your connection and try again.';
+      const status:SaveEntry['status']=msg.toLowerCase().includes('timeout')||msg.toLowerCase().includes('timed out')?'timeout':'failed';
       console.error('[saveProgress] error:', err);
       setSaveError(msg);
+      setSaveLog(prev=>[{section:sectionLabel,status,msg,time:saveTime},...prev].slice(0,20));
       return false;
     }finally{setSavingSection(false);} // savingSection kept for submit spinner; not set by saveProgress
   }
 
   async function submit(){
+    console.log('[submit] handler fired — uid:', profile?.id??user?.id, '| saving state:', saving, '| isReview:', isReview);
     const uid=profile?.id??user?.id;
-    if(!uid)return;
+    if(!uid){console.error('[submit] abort: no uid');return;}
     setSaving(true);setSaveError('');
     try{
       // All section data already saved by saveProgress on each Continue click.
-      // Only need to flip profile_complete — tiny operation, never times out.
-      const res=await fetch('/api/profile/complete',{method:'POST'});
+      // Only need to flip profile_complete — tiny operation.
+      const completeTimeout=new Promise<never>((_,rej)=>setTimeout(()=>rej(new Error('Profile complete request timed out')),10000));
+      const res=await Promise.race([fetch('/api/profile/complete',{method:'POST'}),completeTimeout]);
       if(!res.ok){
         const j=await res.json().catch(()=>({})) as {error?:string};
         throw new Error(j.error||`Server error ${res.status}`);
@@ -1102,6 +1128,28 @@ export default function ProfileSurvey(){
         </div>
         {step>0&&<p style={{textAlign:'center',fontSize:12,color:C.gray400,marginTop:10,fontFamily:F}}>Saved to Supabase on every section. You won&apos;t lose anything.</p>}
       </div>
+
+      {/* ── Debug save log — fixed bottom-right, persists across steps ── */}
+      {saveLog.length>0&&(
+        <div style={{position:'fixed',bottom:16,right:16,zIndex:9999,background:'#0f172a',color:'#e2e8f0',borderRadius:10,padding:'10px 14px',maxWidth:400,fontFamily:'monospace',fontSize:11,boxShadow:'0 4px 24px rgba(0,0,0,.5)',maxHeight:260,overflowY:'auto'}}>
+          <div style={{fontWeight:700,marginBottom:6,fontSize:10,letterSpacing:'.12em',color:'#64748b',textTransform:'uppercase',display:'flex',justifyContent:'space-between'}}>
+            <span>Debug · Save Log</span>
+            <span style={{color:saveLog.some(e=>e.status!=='saved')?'#f87171':'#4ade80'}}>
+              {saveLog.filter(e=>e.status==='saved').length}✓ {saveLog.filter(e=>e.status!=='saved').length}✗
+            </span>
+          </div>
+          {saveLog.map((e,i)=>(
+            <div key={i} style={{display:'flex',gap:6,alignItems:'flex-start',marginBottom:4,borderBottom:i<saveLog.length-1?'1px solid #1e293b':'none',paddingBottom:4}}>
+              <span style={{flexShrink:0,color:e.status==='saved'?'#4ade80':e.status==='timeout'?'#fb923c':'#f87171'}}>
+                {e.status==='saved'?'✓':e.status==='timeout'?'⏱':'✗'}
+              </span>
+              <span style={{color:'#cbd5e1',flexShrink:0,minWidth:90}}>{e.section}</span>
+              <span style={{color:'#94a3b8',flex:1,wordBreak:'break-word'}}>{e.status==='saved'?'Saved':`${e.status}: ${e.msg.slice(0,80)}`}</span>
+              <span style={{color:'#475569',flexShrink:0,marginLeft:4}}>{e.time}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

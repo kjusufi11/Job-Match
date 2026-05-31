@@ -51,22 +51,27 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     let cancelled = false;
 
     async function init() {
+      // Fallback: if getSession never resolves (stuck token refresh), unblock the UI
+      // after 5s WITHOUT clearing user/profile state — onAuthStateChange will correct
+      // things when it fires. This prevents the nav from briefly flashing "Sign In"
+      // for logged-in users whose tokens are being refreshed in the background.
+      let timedOut = false;
+      const fallback = setTimeout(() => {
+        timedOut = true;
+        if (!cancelled) setLoading(false);
+      }, 5000);
+
       try {
-        const { data: { session } } = await Promise.race([
-          supabase.auth.getSession(),
-          // If getSession hangs (e.g. token refresh stalls), unblock the UI after 2s.
-          // The onAuthStateChange listener below will correct auth state when it resolves.
-          new Promise<{ data: { session: null } }>(resolve =>
-            setTimeout(() => resolve({ data: { session: null } }), 2000)
-          ),
-        ]);
-        if (cancelled) return;
+        const { data: { session } } = await supabase.auth.getSession();
+        clearTimeout(fallback);
+        if (cancelled || timedOut) return; // timeout already handled loading
         const u = session?.user ?? null;
         setUser(u);
-        setLoading(false); // unblock nav immediately — profile loads in background
+        setLoading(false);
         if (u) await fetchProfile(u.id);
         else setProfile(null);
       } catch {
+        clearTimeout(fallback);
         if (!cancelled) { setUser(null); setProfile(null); setLoading(false); }
       }
     }
