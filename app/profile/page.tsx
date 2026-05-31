@@ -1018,19 +1018,26 @@ export default function ProfileSurvey(){
       if(!token)throw new Error('Session expired — reload the page to sign in again');
 
       // Step 2: direct REST upsert bypassing @supabase/ssr session wrapper.
-      // Matches the Node.js test approach (100–300ms) — avoids the SSR client's
-      // internal token-refresh blocking behaviour that was causing 8s+ hangs.
+      // URL and key come from the already-connected supabase client so they are
+      // guaranteed correct regardless of build-time env-var inlining.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const sbUrl:string=(supabase as any).supabaseUrl??SB_URL;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const sbKey:string=(supabase as any).supabaseKey??SB_ANON;
+      const upsertUrl=`${sbUrl}/rest/v1/profiles`;
+      const upsertHeaders={
+        'Content-Type':'application/json',
+        'apikey':sbKey,
+        'Authorization':`Bearer ${token}`,
+        'Prefer':'resolution=merge-duplicates,return=minimal',
+      };
+      console.log('[saveProgress] URL:',upsertUrl,'| apikey prefix:',sbKey?.slice(0,24),'| token prefix:',token.slice(0,20));
       const slowTimer=setTimeout(()=>setSlowSave(true),5000);
       try{
         const res=await Promise.race([
-          fetch(`${SB_URL}/rest/v1/profiles`,{
+          fetch(upsertUrl,{
             method:'POST',
-            headers:{
-              'Content-Type':'application/json',
-              'apikey':SB_ANON,
-              'Authorization':`Bearer ${token}`,
-              'Prefer':'resolution=merge-duplicates,return=minimal',
-            },
+            headers:upsertHeaders,
             body:bodyStr,
           }),
           new Promise<never>((_,rej)=>setTimeout(()=>rej(new Error('Save timed out. Your data is saved locally.')),12000)),

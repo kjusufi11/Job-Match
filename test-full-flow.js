@@ -244,7 +244,7 @@ async function run() {
     } else {
       fail(`profile/page.tsx: ZIP is NOT before City & state`); failures++;
     }
-    if (pageSrc.includes("fetch(`${SB_URL}/rest/v1/profiles`") && pageSrc.includes("'Prefer':'resolution=merge-duplicates") && pageSrc.includes('slowSave')) {
+    if (pageSrc.includes('rest/v1/profiles') && pageSrc.includes("'Prefer':'resolution=merge-duplicates") && pageSrc.includes('slowSave')) {
       pass(`profile/page.tsx: saveProgress uses direct REST fetch + slowSave indicator`);
     } else {
       fail(`profile/page.tsx: direct-fetch save approach not found`); failures++;
