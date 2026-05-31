@@ -813,7 +813,8 @@ export default function ProfileSurvey(){
       if(!cancelled&&!tokenRef.current)router.push('/login');
     },3000);
     return()=>{cancelled=true;clearTimeout(guard);subscription.unsubscribe();};
-  },[supabase,router]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[]);
 
   // Pre-fill from DB + restore localStorage draft
   useEffect(()=>{
