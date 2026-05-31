@@ -64,7 +64,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         clearTimeout(fallback);
-        if (cancelled || timedOut) return; // timeout already handled loading
+        if (cancelled) return;
         const u = session?.user ?? null;
         setUser(u);
         setLoading(false);

@@ -337,26 +337,28 @@ function S1({d,set,errors}:SecProps){
   </div>
   <div style={{marginBottom:16}}><FL required>Email address</FL><TI value={d.email} onChange={v=>set(x=>({...x,email:v}))} placeholder="jane@example.com" type="email"/><ErrMsg msg={errors?.email}/></div>
   <div style={{marginBottom:16}}><FL optional>Phone number</FL><TI value={d.phone} onChange={v=>set(x=>({...x,phone:v}))} placeholder="+1 (555) 000-0000"/></div>
-  <div style={{display:'grid',gridTemplateColumns:'2fr 1fr',gap:12,marginBottom:16}}>
-    <div>
+  <div style={{marginBottom:16}}>
+    <FL required>ZIP code</FL>
+    <TI value={d.zip} onChange={v=>{set(x=>({...x,zip:v}));if(v.length===5&&/^\d{5}$/.test(v))lookupZip(v);}} placeholder="60601"/>
+    {zipFetching&&<div style={{fontSize:11,color:C.teal,marginTop:3,fontFamily:F}}>Looking up city…</div>}
+    <ErrMsg msg={errors?.zip}/>
+  </div>
+  {locationLocked?(
+    <div style={{marginBottom:16}}>
       <FL required>City & state</FL>
-      {locationLocked?(
-        <div style={{display:'flex',alignItems:'center',gap:8}}>
-          <div style={{flex:1,padding:'11px 14px',borderRadius:8,background:C.gray100,border:`1.5px solid ${C.border}`,color:C.slate,fontSize:14,fontFamily:F,lineHeight:'1.2'}}>{d.location}</div>
-          <button onClick={()=>setLocationLocked(false)} style={{fontSize:12,color:C.teal,background:'none',border:`1px solid ${C.tealBorder}`,borderRadius:6,padding:'6px 10px',cursor:'pointer',fontFamily:F,fontWeight:600,whiteSpace:'nowrap'}}>Edit</button>
-        </div>
-      ):(
-        <TI value={d.location} onChange={v=>set(x=>({...x,location:v}))} placeholder="Chicago, IL"/>
-      )}
+      <div style={{display:'flex',alignItems:'center',gap:8}}>
+        <div style={{flex:1,padding:'11px 14px',borderRadius:8,background:C.gray100,border:`1.5px solid ${C.border}`,color:C.slate,fontSize:14,fontFamily:F,lineHeight:'1.2'}}>{d.location}</div>
+        <button onClick={()=>setLocationLocked(false)} style={{fontSize:12,color:C.teal,background:'none',border:`1px solid ${C.tealBorder}`,borderRadius:6,padding:'6px 10px',cursor:'pointer',fontFamily:F,fontWeight:600,whiteSpace:'nowrap'}}>Edit</button>
+      </div>
       <ErrMsg msg={errors?.location}/>
     </div>
-    <div>
-      <FL required>ZIP code</FL>
-      <TI value={d.zip} onChange={v=>{set(x=>({...x,zip:v}));if(v.length===5&&/^\d{5}$/.test(v))lookupZip(v);}} placeholder="60601"/>
-      {zipFetching&&<div style={{fontSize:11,color:C.teal,marginTop:3,fontFamily:F}}>Looking up city…</div>}
-      <ErrMsg msg={errors?.zip}/>
+  ):(
+    <div style={{marginBottom:16}}>
+      <FL required hint="Enter your ZIP above to auto-fill, or type your city and state here">City & state</FL>
+      <TI value={d.location} onChange={v=>set(x=>({...x,location:v}))} placeholder="Chicago, IL"/>
+      <ErrMsg msg={errors?.location}/>
     </div>
-  </div>
+  )}
   <Div label="Professional headline"/>
   <div style={{marginBottom:16}}>
     <FL optional hint="Your professional tagline — shown on your profile. 120 characters max.">Headline</FL>
@@ -991,7 +993,7 @@ export default function ProfileSurvey(){
       if(upsertErr)throw new Error(upsertErr.message);
 
       setSectionSaved(true);setSaveError('');setTimeout(()=>setSectionSaved(false),3000);
-      setSaveLog(prev=>[{section:sectionLabel,status:'saved',msg:'',time:saveTime},...prev].slice(0,20));
+      setSaveLog(prev=>[{section:sectionLabel,status:'saved' as const,msg:'',time:saveTime},...prev].slice(0,20));
       refreshProfile().catch(()=>{});
       return true;
     }catch(err:unknown){
@@ -1005,7 +1007,7 @@ export default function ProfileSurvey(){
   }
 
   async function submit(){
-    console.log('[submit] handler fired — uid:', profile?.id??user?.id, '| saving state:', saving, '| isReview:', isReview);
+    console.log('submit clicked');
     const uid=profile?.id??user?.id;
     if(!uid){console.error('[submit] abort: no uid');return;}
     setSaving(true);setSaveError('');
@@ -1131,7 +1133,8 @@ export default function ProfileSurvey(){
 
       {/* ── Debug save log — fixed bottom-right, persists across steps ── */}
       {saveLog.length>0&&(
-        <div style={{position:'fixed',bottom:16,right:16,zIndex:9999,background:'#0f172a',color:'#e2e8f0',borderRadius:10,padding:'10px 14px',maxWidth:400,fontFamily:'monospace',fontSize:11,boxShadow:'0 4px 24px rgba(0,0,0,.5)',maxHeight:260,overflowY:'auto'}}>
+        <div style={{position:'fixed',bottom:16,right:16,zIndex:9999,pointerEvents:'none'}}>
+        <div style={{background:'#0f172a',color:'#e2e8f0',borderRadius:10,padding:'10px 14px',maxWidth:400,fontFamily:'monospace',fontSize:11,boxShadow:'0 4px 24px rgba(0,0,0,.5)',maxHeight:260,overflowY:'auto',pointerEvents:'auto'}}>
           <div style={{fontWeight:700,marginBottom:6,fontSize:10,letterSpacing:'.12em',color:'#64748b',textTransform:'uppercase',display:'flex',justifyContent:'space-between'}}>
             <span>Debug · Save Log</span>
             <span style={{color:saveLog.some(e=>e.status!=='saved')?'#f87171':'#4ade80'}}>
@@ -1148,6 +1151,7 @@ export default function ProfileSurvey(){
               <span style={{color:'#475569',flexShrink:0,marginLeft:4}}>{e.time}</span>
             </div>
           ))}
+        </div>
         </div>
       )}
     </div>
