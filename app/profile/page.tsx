@@ -16,6 +16,9 @@ const C = {
   amber:'#C9870C',amberDim:'#C9870C14',red:'#C0392B',redDim:'#C0392B14',purple:'#6B5EA8',
 };
 const F = "'Plus Jakarta Sans','Helvetica Neue',sans-serif";
+// Inlined at build time — safe to use in browser fetch calls
+const SB_URL  = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const SB_ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 type Degree   = { level:string; field:string; university:string; gradYear:string; current:boolean; gpa:string; activities:string };
@@ -786,6 +789,7 @@ export default function ProfileSurvey(){
   const [sectionSaved,setSectionSaved]=useState(false);
   const [showDraftBanner,setShowDraftBanner]=useState(false);
   const [saveLog,setSaveLog]=useState<SaveEntry[]>([]);
+  const [slowSave,setSlowSave]=useState(false);
   const total=SECTIONS.length;
   const isReview=step>total;
 
@@ -985,12 +989,39 @@ export default function ProfileSurvey(){
       const bodyStr=JSON.stringify(sectionPayload);
       console.log('[saveProgress]',sectionLabel,'— payload:',bodyStr.length,'bytes, step:',step);
 
-      // Direct client-side upsert — eliminates the API route round trip and the
-      // supabase.auth.getUser() network call that was the primary latency source.
-      const timeoutP=new Promise<never>((_,rej)=>setTimeout(()=>rej(new Error('Save timed out. Your data is saved locally.')),8000));
-      const upsertP=supabase.from('profiles').upsert(sectionPayload);
-      const {error:upsertErr}=await Promise.race([upsertP,timeoutP]);
-      if(upsertErr)throw new Error(upsertErr.message);
+      // Step 1: get/refresh session with its own timeout (separates auth latency from DB latency)
+      const sessionRace=await Promise.race([
+        supabase.auth.getSession(),
+        new Promise<never>((_,rej)=>setTimeout(()=>rej(new Error('Session refresh timed out — reload the page to re-authenticate')),8000)),
+      ]);
+      const token=sessionRace.data?.session?.access_token;
+      if(!token)throw new Error('Not signed in — please reload and sign in again');
+
+      // Step 2: direct REST upsert bypassing @supabase/ssr session wrapper.
+      // Matches the Node.js test approach (100–300ms) — avoids the SSR client's
+      // internal token-refresh blocking behaviour that was causing 8s+ hangs.
+      const slowTimer=setTimeout(()=>setSlowSave(true),5000);
+      try{
+        const res=await Promise.race([
+          fetch(`${SB_URL}/rest/v1/profiles`,{
+            method:'POST',
+            headers:{
+              'Content-Type':'application/json',
+              'apikey':SB_ANON,
+              'Authorization':`Bearer ${token}`,
+              'Prefer':'resolution=merge-duplicates,return=minimal',
+            },
+            body:bodyStr,
+          }),
+          new Promise<never>((_,rej)=>setTimeout(()=>rej(new Error('Save timed out. Your data is saved locally.')),12000)),
+        ]);
+        if(!res.ok){
+          const errBody=await res.json().catch(()=>({})) as {message?:string};
+          throw new Error(errBody.message||`Server error ${res.status}`);
+        }
+      }finally{
+        clearTimeout(slowTimer);setSlowSave(false);
+      }
 
       setSectionSaved(true);setSaveError('');setTimeout(()=>setSectionSaved(false),3000);
       setSaveLog(prev=>[{section:sectionLabel,status:'saved' as const,msg:'',time:saveTime},...prev].slice(0,20));
@@ -1067,8 +1098,9 @@ export default function ProfileSurvey(){
       {/* Sticky progress header — no logo (Nav already has it) */}
       <div style={{background:C.white,borderBottom:`1px solid ${C.border}`,padding:'0 20px',height:50,display:'flex',alignItems:'center',justifyContent:'flex-end',gap:12,position:'sticky',top:0,zIndex:100,boxShadow:'0 1px 4px rgba(0,0,0,.04)'}}>
         {sectionSaved&&<span style={{fontSize:11,color:C.green,fontWeight:600,fontFamily:F}}>✓ Saved</span>}
-        {!savingSection&&!sectionSaved&&autoSaved&&<span style={{fontSize:11,color:C.gray400,fontWeight:500,fontFamily:F}}>✓ Draft saved</span>}
-        {saveError&&<span style={{fontSize:11,color:C.amber,fontWeight:600,fontFamily:F}}>⚠ {saveError}</span>}
+        {slowSave&&!sectionSaved&&<span style={{fontSize:11,color:C.amber,fontWeight:600,fontFamily:F}}>Still saving… hang tight</span>}
+        {!savingSection&&!sectionSaved&&!slowSave&&autoSaved&&<span style={{fontSize:11,color:C.gray400,fontWeight:500,fontFamily:F}}>✓ Draft saved</span>}
+        {saveError&&!slowSave&&<span style={{fontSize:11,color:C.amber,fontWeight:600,fontFamily:F}}>⚠ {saveError}</span>}
         <span style={{fontSize:12,color:C.gray600,fontWeight:500,fontFamily:F}}>
           {step===0?'Step 0 · Resume upload':isReview?'Review & submit':`${step} of ${total} · ${SECTIONS[step-1]?.label}`}
         </span>

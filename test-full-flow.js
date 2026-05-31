@@ -102,6 +102,7 @@ async function run() {
   // ── 3. Sign in with anon key (tests real auth path) ───────────────────────
   section(3, 'Sign in as test user with anon key');
   let authedClient = null;
+  let accessToken = null;
   try {
     const anonClient = createClient(URL_, ANON, { auth: { autoRefreshToken: false, persistSession: false } });
     const t1 = Date.now();
@@ -113,22 +114,43 @@ async function run() {
     if (signInErr || !session) {
       fail(`signInWithPassword failed: ${signInErr?.message ?? 'no session'} [${ms(ms1)}]`); failures++;
     } else {
-      pass(`Signed in [${ms(ms1)}] — token: ${session.access_token.slice(0,20)}…`);
+      accessToken = session.access_token;
+      pass(`Signed in [${ms(ms1)}] — token: ${accessToken.slice(0,20)}…`);
       authedClient = createClient(URL_, ANON, {
         auth: { autoRefreshToken: false, persistSession: false },
-        global: { headers: { Authorization: `Bearer ${session.access_token}` } },
+        global: { headers: { Authorization: `Bearer ${accessToken}` } },
       });
     }
   } catch (e) {
     fail(`Unexpected error: ${e.message}`); failures++;
   }
 
-  if (!authedClient) {
+  if (!authedClient || !accessToken) {
     console.error('\nSkipping RLS tests — no authenticated client.\n');
   } else {
-    // ── 4. All 9 section upserts via authenticated anon client (real RLS) ──
-    section(4, 'All 9 section upserts via authed anon client (RLS)');
+    // ── 4. All 9 section upserts via direct REST fetch (mirrors new saveProgress) ──
+    // Uses explicit Bearer token in Authorization header — same code path as production.
+    section(4, 'All 9 section upserts via direct REST fetch with explicit token (RLS)');
     const id = testUserId;
+
+    async function directUpsert(payload) {
+      const res = await fetch(`${URL_}/rest/v1/profiles`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': ANON,
+          'Authorization': `Bearer ${accessToken}`,
+          'Prefer': 'resolution=merge-duplicates,return=minimal',
+        },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.message || `HTTP ${res.status}`);
+      }
+      return res;
+    }
+
     const sectionPayloads = [
       { name: 'S1 Basic Info', payload: { id, role:'seeker', name:'Auto Test', first_name:'Auto', last_name:'Test', phone: null, location:'New York, NY', zip:'10001', work_auth:'US Citizen', headline:'Engineer', linkedin:null, website:null, other_link:null, gender:null, race:null, veteran:null, disability:null } },
       { name: 'S2 Summary', payload: { id, role:'seeker', summary:'Auto test summary.', accomplishments:['A1','A2','A3'] } },
@@ -143,10 +165,12 @@ async function run() {
 
     for (const { name, payload } of sectionPayloads) {
       const ts = Date.now();
-      const { error: sErr } = await authedClient.from('profiles').upsert(payload);
-      const tMs = Date.now() - ts;
-      if (sErr) { fail(`${name}: ${sErr.message} [${ms(tMs)}]`); failures++; }
-      else { pass(`${name}: OK [${ms(tMs)}]`); }
+      try {
+        await directUpsert(payload);
+        pass(`${name}: OK [${ms(Date.now()-ts)}]`);
+      } catch (e) {
+        fail(`${name}: ${e.message} [${ms(Date.now()-ts)}]`); failures++;
+      }
     }
 
     // ── 5. Set profile_complete via service role (mirrors /api/profile/complete) ──
@@ -219,6 +243,11 @@ async function run() {
       pass(`profile/page.tsx: ZIP field appears before City & state`);
     } else {
       fail(`profile/page.tsx: ZIP is NOT before City & state`); failures++;
+    }
+    if (pageSrc.includes("fetch(`${SB_URL}/rest/v1/profiles`") && pageSrc.includes("'Prefer':'resolution=merge-duplicates") && pageSrc.includes('slowSave')) {
+      pass(`profile/page.tsx: saveProgress uses direct REST fetch + slowSave indicator`);
+    } else {
+      fail(`profile/page.tsx: direct-fetch save approach not found`); failures++;
     }
   } catch (e) { fail(`profile/page.tsx read failed: ${e.message}`); failures++; }
 
