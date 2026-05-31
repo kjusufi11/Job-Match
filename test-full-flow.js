@@ -249,6 +249,19 @@ async function run() {
     } else {
       fail(`profile/page.tsx: direct-fetch save approach not found`); failures++;
     }
+    if (pageSrc.includes('tokenRef=useRef<string|null>(null)') && pageSrc.includes('onAuthStateChange') && pageSrc.includes('const token=tokenRef.current')) {
+      pass(`profile/page.tsx: tokenRef pattern — single auth fetch on mount, ref used in saves`);
+    } else {
+      fail(`profile/page.tsx: tokenRef single-fetch pattern not found`); failures++;
+    }
+    // Verify saveProgress does not call getSession() — token comes from tokenRef.current
+    const saveProgressBody = pageSrc.slice(pageSrc.indexOf('async function saveProgress'));
+    const saveEnd = saveProgressBody.indexOf('\n  async function ') || saveProgressBody.indexOf('\n  function ') || saveProgressBody.length;
+    if (!saveProgressBody.slice(0, saveEnd).includes('getSession()')) {
+      pass(`profile/page.tsx: saveProgress does not call getSession() — uses tokenRef.current`);
+    } else {
+      fail(`profile/page.tsx: saveProgress still calls getSession() — token is not cached`); failures++;
+    }
   } catch (e) { fail(`profile/page.tsx read failed: ${e.message}`); failures++; }
 
   // ── Cleanup ───────────────────────────────────────────────────────────────

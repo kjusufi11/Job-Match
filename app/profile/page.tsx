@@ -776,6 +776,7 @@ export default function ProfileSurvey(){
   const router=useRouter();
   const supabase=useMemo(()=>createClient(),[]);
   const prefillDone=useRef(false);
+  const tokenRef=useRef<string|null>(null);
 
   const [step,setStep]=useState(-1);
   const [data,setData]=useState<SurveyData>(INIT);
@@ -792,6 +793,27 @@ export default function ProfileSurvey(){
   const [slowSave,setSlowSave]=useState(false);
   const total=SECTIONS.length;
   const isReview=step>total;
+
+  // Fetch session token ONCE on mount; keep it fresh via onAuthStateChange.
+  // Storing in a ref means saveProgress reads the token synchronously — no
+  // async getSession() call before each upsert.
+  useEffect(()=>{
+    let cancelled=false;
+    // onAuthStateChange fires immediately with INITIAL_SESSION from localStorage,
+    // then again whenever the SDK auto-refreshes the token in the background.
+    const {data:{subscription}}=supabase.auth.onAuthStateChange((_evt,session)=>{
+      if(!cancelled)tokenRef.current=session?.access_token??null;
+    });
+    // Belt-and-suspenders: also call getSession() in case the listener is delayed
+    supabase.auth.getSession().then(({data:{session}})=>{
+      if(!cancelled&&!tokenRef.current)tokenRef.current=session?.access_token??null;
+    });
+    // If no token after 3 s the user is not signed in — redirect to login
+    const guard=setTimeout(()=>{
+      if(!cancelled&&!tokenRef.current)router.push('/login');
+    },3000);
+    return()=>{cancelled=true;clearTimeout(guard);subscription.unsubscribe();};
+  },[supabase,router]);
 
   // Pre-fill from DB + restore localStorage draft
   useEffect(()=>{
@@ -989,13 +1011,10 @@ export default function ProfileSurvey(){
       const bodyStr=JSON.stringify(sectionPayload);
       console.log('[saveProgress]',sectionLabel,'— payload:',bodyStr.length,'bytes, step:',step);
 
-      // Step 1: get/refresh session with its own timeout (separates auth latency from DB latency)
-      const sessionRace=await Promise.race([
-        supabase.auth.getSession(),
-        new Promise<never>((_,rej)=>setTimeout(()=>rej(new Error('Session refresh timed out — reload the page to re-authenticate')),8000)),
-      ]);
-      const token=sessionRace.data?.session?.access_token;
-      if(!token)throw new Error('Not signed in — please reload and sign in again');
+      // Token was fetched once on mount and is kept fresh by onAuthStateChange.
+      // Reading tokenRef.current here is synchronous — zero auth latency per save.
+      const token=tokenRef.current;
+      if(!token)throw new Error('Session expired — reload the page to sign in again');
 
       // Step 2: direct REST upsert bypassing @supabase/ssr session wrapper.
       // Matches the Node.js test approach (100–300ms) — avoids the SSR client's
