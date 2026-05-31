@@ -781,6 +781,7 @@ export default function ProfileSurvey(){
   const [errors,setErrors]=useState<Record<string,string>>({});
   const [savingSection,setSavingSection]=useState(false);
   const [sectionSaved,setSectionSaved]=useState(false);
+  const [showDraftBanner,setShowDraftBanner]=useState(false);
   const total=SECTIONS.length;
   const isReview=step>total;
 
@@ -798,7 +799,7 @@ export default function ProfileSurvey(){
           const stepStr=localStorage.getItem(`matcht_profile_step_${uid}`);
           if(stepStr){const n=parseInt(stepStr);if(n>=1&&n<=total+1)setStep(n);}
           const s=localStorage.getItem(`matcht_profile_draft_${uid}`);
-          if(s){prefillDone.current=true;setData(JSON.parse(s) as SurveyData);return;}
+          if(s){prefillDone.current=true;setData(JSON.parse(s) as SurveyData);setShowDraftBanner(true);return;}
         }catch{}
       }
       prefillDone.current=true;setStep(0);return;
@@ -879,7 +880,7 @@ export default function ProfileSurvey(){
       const stepStr=localStorage.getItem(`matcht_profile_step_${id}`);
       if(stepStr){const n=parseInt(stepStr);if(n>=1&&n<=total+1)setStep(n);}
       const s=localStorage.getItem(`matcht_profile_draft_${id}`);
-      if(s){prefillDone.current=true;setData(JSON.parse(s) as SurveyData);return;}
+      if(s){prefillDone.current=true;setData(JSON.parse(s) as SurveyData);setShowDraftBanner(true);return;}
     }catch{}
     prefillDone.current=true;setStep(1);setData(fp);
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -919,7 +920,7 @@ export default function ProfileSurvey(){
   async function saveProgress(d:SurveyData):Promise<boolean>{
     const uid=profile?.id??user?.id;
     if(!uid)return false;
-    setSectionSaved(false);setSaveError('');
+    setSectionSaved(false);
     try{
       const totalExp=deriveExpYears(d.jobs)||null;
       const payload={
@@ -968,7 +969,7 @@ export default function ProfileSurvey(){
         const j=await res.json().catch(()=>({})) as {error?:string};
         throw new Error(j.error||`Server error ${res.status}`);
       }
-      setSectionSaved(true);setTimeout(()=>setSectionSaved(false),3000);
+      setSectionSaved(true);setSaveError('');setTimeout(()=>setSectionSaved(false),3000);
       refreshProfile().catch(()=>{});
       return true;
     }catch(err:unknown){
@@ -1061,6 +1062,12 @@ export default function ProfileSurvey(){
 
       {/* Content */}
       <div style={{maxWidth:680,margin:'28px auto 0',padding:'0 16px'}}>
+        {showDraftBanner&&step>0&&(
+          <div style={{background:C.tealDim,border:`1px solid ${C.tealBorder}`,borderRadius:9,padding:'12px 16px',marginBottom:14,display:'flex',alignItems:'center',justifyContent:'space-between',fontSize:13,color:C.teal,fontFamily:F,fontWeight:600}}>
+            <span>📋 Draft restored — picking up where you left off. Your answers are safe.</span>
+            <button onClick={()=>setShowDraftBanner(false)} style={{background:'none',border:'none',color:C.teal,cursor:'pointer',fontSize:18,lineHeight:1,padding:'0 0 0 12px',fontWeight:400}}>×</button>
+          </div>
+        )}
         {step>0&&<Progress step={Math.max(0,step-1)} total={total} sections={SECTIONS}/>}
         <Card style={{marginBottom:14}}>
           {step===0&&<ResumeUpload/>}
@@ -1081,6 +1088,8 @@ export default function ProfileSurvey(){
               ?<button onClick={()=>{
                   const errs=validateSection(step,data);
                   if(Object.keys(errs).length>0){setErrors(errs);window.scrollTo({top:0,behavior:'smooth'});return;}
+                  const uid=profile?.id??user?.id;
+                  if(uid)try{localStorage.setItem(`matcht_profile_draft_${uid}`,JSON.stringify(data));}catch{}
                   saveProgress(data).catch(()=>{});
                   go(step+1);
                 }} style={{flex:2,padding:'13px 0',borderRadius:9,background:C.teal,color:C.white,border:'none',fontWeight:700,fontSize:15,cursor:'pointer',fontFamily:F,boxShadow:`0 2px 12px ${C.teal}44`}}>

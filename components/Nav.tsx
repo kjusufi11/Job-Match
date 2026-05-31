@@ -24,7 +24,7 @@ export default function Nav() {
       : [{ l: 'My Matches', p: '/dashboard' }, { l: 'My Profile', p: '/profile' }, { l: 'Notifications', p: '/notifications' }]
     : user
       ? [{ l: 'My Profile', p: '/profile' }]
-      : [{ l: 'Pricing', p: '/pricing' }];
+      : [];
 
   useEffect(() => {
     if (!profile || profile.role !== 'seeker') return;

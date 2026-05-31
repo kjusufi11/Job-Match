@@ -52,7 +52,14 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
     async function init() {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        const { data: { session } } = await Promise.race([
+          supabase.auth.getSession(),
+          // If getSession hangs (e.g. token refresh stalls), unblock the UI after 2s.
+          // The onAuthStateChange listener below will correct auth state when it resolves.
+          new Promise<{ data: { session: null } }>(resolve =>
+            setTimeout(() => resolve({ data: { session: null } }), 2000)
+          ),
+        ]);
         if (cancelled) return;
         const u = session?.user ?? null;
         setUser(u);
