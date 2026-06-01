@@ -1,4 +1,4 @@
-import { createServerClient } from '@supabase/ssr';
+﻿import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
 export async function middleware(request: NextRequest) {
@@ -7,8 +7,8 @@ export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    (process.env.NEXT_PUBLIC_SUPABASE_URL ?? '').replace(/^\uFEFF/, '').trim(),
+    (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '').replace(/^\uFEFF/, '').trim(),
     {
       cookies: {
         getAll() {
@@ -30,14 +30,14 @@ export async function middleware(request: NextRequest) {
 
   const path = request.nextUrl.pathname;
 
-  // getSession() reads the cookie locally and refreshes the token when expired —
+  // getSession() reads the cookie locally and refreshes the token when expired â€”
   // no external network call on every request, unlike getUser().
   let user: { id: string } | null = null;
   try {
     const { data: { session } } = await supabase.auth.getSession();
     user = session?.user ?? null;
   } catch {
-    // Any failure — treat as logged out and allow the request through
+    // Any failure â€” treat as logged out and allow the request through
   }
 
   const authRequired = ['/dashboard', '/profile', '/notifications', '/settings', '/recruiter', '/admin'];
@@ -48,7 +48,7 @@ export async function middleware(request: NextRequest) {
     return res;
   }
 
-  // Logged-in users don't need auth pages — send them home.
+  // Logged-in users don't need auth pages â€” send them home.
   if (user && (path === '/login' || path === '/signup')) {
     const res = NextResponse.redirect(new URL('/dashboard', request.url));
     supabaseResponse.cookies.getAll().forEach(c => res.cookies.set(c.name, c.value));

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import { createContext, useContext, useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { Profile } from '@/lib/types';
@@ -23,7 +23,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const tokenRef = useRef<string | null>(null);
 
   // Detect version changes: if the server's deploy ID differs from the one stored in
-  // sessionStorage, a new version was deployed — reload once to get fresh assets.
+  // sessionStorage, a new version was deployed -- reload once to get fresh assets.
   useEffect(() => {
     try {
       const cookieVersion = document.cookie.split('; ')
@@ -39,7 +39,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     } catch {}
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  // Stable client — not recreated every render, so useEffect deps don't thrash
+  // Stable client -- not recreated every render, so useEffect deps don't thrash
   const supabase = useMemo(() => createClient(), []);
 
   const fetchProfile = useCallback(async (uid: string) => {
@@ -57,10 +57,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     let cancelled = false;
 
     async function init() {
-      // Fallback: if getSession never resolves (stuck token refresh), unblock the UI
-      // after 5s WITHOUT clearing user/profile state — onAuthStateChange will correct
-      // things when it fires. This prevents the nav from briefly flashing "Sign In"
-      // for logged-in users whose tokens are being refreshed in the background.
       let timedOut = false;
       const fallback = setTimeout(() => {
         timedOut = true;
@@ -105,8 +101,11 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     };
   }, [supabase, fetchProfile]);
 
+  const sbUrl = ((supabase as any).supabaseUrl as string ?? '').replace(/^\uFEFF/, '').trim();
+  const sbKey = ((supabase as any).supabaseKey as string ?? '').replace(/^\uFEFF/, '').trim();
+
   return (
-    <UserContext.Provider value={{ user, profile, loading, refreshProfile, getToken, supabaseUrl: ((supabase as any).supabaseUrl as string ?? '').replace(/^﻿/, '').trim(), supabaseKey: ((supabase as any).supabaseKey as string ?? '').replace(/^﻿/, '').trim() }}>
+    <UserContext.Provider value={{ user, profile, loading, refreshProfile, getToken, supabaseUrl: sbUrl, supabaseKey: sbKey }}>
       {children}
     </UserContext.Provider>
   );

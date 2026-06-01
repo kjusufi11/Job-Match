@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@/app/providers';
@@ -15,9 +15,10 @@ const C = {
   amber:'#C9870C',amberDim:'#C9870C14',red:'#C0392B',redDim:'#C0392B14',purple:'#6B5EA8',
 };
 const F = "'Plus Jakarta Sans','Helvetica Neue',sans-serif";
-function stripBom(s:string|undefined):string{return(s??'').replace(/^﻿/,'').trim();}
+function stripBom(s:string|undefined):string{return(s??'').replace(/^\uFEFF/,'').trim();}
 const SB_URL  = stripBom(process.env.NEXT_PUBLIC_SUPABASE_URL);
-const SB_ANON = stripBom(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);;
+const SB_ANON = stripBom(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+console.log('ANON KEY first charCode:', process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.charCodeAt(0), '| URL first charCode:', process.env.NEXT_PUBLIC_SUPABASE_URL?.charCodeAt(0));
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 type Degree   = { level:string; field:string; university:string; gradYear:string; current:boolean; gpa:string; activities:string };

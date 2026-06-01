@@ -1,7 +1,7 @@
-import { createBrowserClient } from '@supabase/ssr';
+﻿import { createBrowserClient } from '@supabase/ssr';
 
 function clean(s: string | undefined): string {
-  return (s ?? '').replace(/^﻿/, '').trim();
+  return (s ?? '').replace(/^\uFEFF/, '').trim();
 }
 
 export function createClient() {
