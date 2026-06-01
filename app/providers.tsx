@@ -106,7 +106,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   }, [supabase, fetchProfile]);
 
   return (
-    <UserContext.Provider value={{ user, profile, loading, refreshProfile, getToken, supabaseUrl: (supabase as any).supabaseUrl as string, supabaseKey: (supabase as any).supabaseKey as string }}>
+    <UserContext.Provider value={{ user, profile, loading, refreshProfile, getToken, supabaseUrl: ((supabase as any).supabaseUrl as string ?? '').replace(/^﻿/, '').trim(), supabaseKey: ((supabase as any).supabaseKey as string ?? '').replace(/^﻿/, '').trim() }}>
       {children}
     </UserContext.Provider>
   );

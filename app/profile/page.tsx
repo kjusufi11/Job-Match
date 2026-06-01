@@ -15,9 +15,9 @@ const C = {
   amber:'#C9870C',amberDim:'#C9870C14',red:'#C0392B',redDim:'#C0392B14',purple:'#6B5EA8',
 };
 const F = "'Plus Jakarta Sans','Helvetica Neue',sans-serif";
-// Inlined at build time — safe to use in browser fetch calls
-const SB_URL  = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const SB_ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+function stripBom(s:string|undefined):string{return(s??'').replace(/^﻿/,'').trim();}
+const SB_URL  = stripBom(process.env.NEXT_PUBLIC_SUPABASE_URL);
+const SB_ANON = stripBom(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);;
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 type Degree   = { level:string; field:string; university:string; gradYear:string; current:boolean; gpa:string; activities:string };
