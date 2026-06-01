@@ -1062,25 +1062,45 @@ export default function ProfileSurvey(){
     if(!uid){console.error('[submit] abort: no uid');return;}
     setSaving(true);setSaveError('');
     try{
-      // All section data already saved by saveProgress on each Continue click.
-      // Only need to flip profile_complete — tiny operation.
-      const completeTimeout=new Promise<never>((_,rej)=>setTimeout(()=>rej(new Error('Profile complete request timed out')),10000));
-      const res=await Promise.race([fetch('/api/profile/complete',{method:'POST'}),completeTimeout]);
+      // Lazy token fetch — same pattern as saveProgress
+      if(!tokenRef.current){
+        const {data:{session}}=await supabase.auth.getSession();
+        tokenRef.current=session?.access_token??null;
+      }
+      const token=tokenRef.current;
+      if(!token)throw new Error('Session expired — reload the page to sign in again');
+
+      const sbUrl:string=(supabase as any).supabaseUrl??SB_URL;
+      const sbKey:string=(supabase as any).supabaseKey??SB_ANON;
+      console.log('[submit] URL:',sbUrl,'| uid:',uid);
+      const res=await Promise.race([
+        fetch(`${sbUrl}/rest/v1/profiles`,{
+          method:'POST',
+          headers:{
+            'Content-Type':'application/json',
+            'apikey':sbKey,
+            'Authorization':`Bearer ${token}`,
+            'Prefer':'resolution=merge-duplicates,return=minimal',
+          },
+          body:JSON.stringify({id:uid,role:profile?.role??'seeker',profile_complete:true,updated_at:new Date().toISOString()}),
+        }),
+        new Promise<never>((_,rej)=>setTimeout(()=>rej(new Error('Submit timed out. Your data is saved — please try again.')),12000)),
+      ]);
       if(!res.ok){
-        const j=await res.json().catch(()=>({})) as {error?:string};
-        throw new Error(j.error||`Server error ${res.status}`);
+        if(res.status===401)tokenRef.current=null;
+        const errBody=await res.json().catch(()=>({})) as {message?:string};
+        throw new Error(errBody.message||`Server error ${res.status}`);
       }
       fetch('/api/match-scores',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({seekerId:uid})}).catch(()=>{});
       if(!profile?.profile_complete){
         fetch('/api/email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'seeker-welcome',seekerId:uid})}).catch(()=>{});
       }
-      // Await refresh so dashboard sees profile_complete=true before user navigates there
-      await refreshProfile().catch(()=>{});
       try{localStorage.removeItem(`matcht_profile_draft_${uid}`);}catch{}
       try{localStorage.removeItem(`matcht_profile_step_${uid}`);}catch{}
       try{localStorage.removeItem(`matcht_resume_seen_${uid}`);}catch{}
-      setDone(true);
+      router.push('/dashboard');
     }catch(err:unknown){
+      if((err as Error)?.message?.includes('401'))tokenRef.current=null;
       setSaveError((err as Error)?.message||'Save failed. Your answers are saved locally — please try again.');
     }finally{setSaving(false);}
   }

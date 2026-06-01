@@ -249,6 +249,11 @@ async function run() {
     } else {
       fail(`profile/page.tsx: direct-fetch save approach not found`); failures++;
     }
+    if (pageSrc.includes('profile_complete:true') && pageSrc.includes("router.push('/dashboard')") && !pageSrc.includes("fetch('/api/profile/complete'")) {
+      pass(`profile/page.tsx: submit() uses direct REST upsert for profile_complete, redirects to /dashboard`);
+    } else {
+      fail(`profile/page.tsx: submit() still uses /api/profile/complete route or missing redirect`); failures++;
+    }
     if (pageSrc.includes('tokenRef=useRef<string|null>(null)') && pageSrc.includes('if(!tokenRef.current)') && pageSrc.includes('const token=tokenRef.current')) {
       pass(`profile/page.tsx: tokenRef pattern — lazy token fetch, ref cached for reuse`);
     } else {
