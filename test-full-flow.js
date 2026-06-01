@@ -249,18 +249,19 @@ async function run() {
     } else {
       fail(`profile/page.tsx: direct-fetch save approach not found`); failures++;
     }
-    if (pageSrc.includes('tokenRef=useRef<string|null>(null)') && pageSrc.includes('onAuthStateChange') && pageSrc.includes('const token=tokenRef.current')) {
-      pass(`profile/page.tsx: tokenRef pattern — single auth fetch on mount, ref used in saves`);
+    if (pageSrc.includes('tokenRef=useRef<string|null>(null)') && pageSrc.includes('if(!tokenRef.current)') && pageSrc.includes('const token=tokenRef.current')) {
+      pass(`profile/page.tsx: tokenRef pattern — lazy token fetch, ref cached for reuse`);
     } else {
-      fail(`profile/page.tsx: tokenRef single-fetch pattern not found`); failures++;
+      fail(`profile/page.tsx: tokenRef lazy-fetch pattern not found`); failures++;
     }
-    // Verify saveProgress does not call getSession() — token comes from tokenRef.current
+    // Verify saveProgress uses lazy getSession() guarded by if(!tokenRef.current)
     const saveProgressBody = pageSrc.slice(pageSrc.indexOf('async function saveProgress'));
     const saveEnd = saveProgressBody.indexOf('\n  async function ') || saveProgressBody.indexOf('\n  function ') || saveProgressBody.length;
-    if (!saveProgressBody.slice(0, saveEnd).includes('getSession()')) {
-      pass(`profile/page.tsx: saveProgress does not call getSession() — uses tokenRef.current`);
+    const spBody = saveProgressBody.slice(0, saveEnd);
+    if (spBody.includes('if(!tokenRef.current)') && spBody.includes('getSession()')) {
+      pass(`profile/page.tsx: saveProgress uses lazy getSession() — only fetches when tokenRef is empty`);
     } else {
-      fail(`profile/page.tsx: saveProgress still calls getSession() — token is not cached`); failures++;
+      fail(`profile/page.tsx: saveProgress lazy-token pattern not found`); failures++;
     }
   } catch (e) { fail(`profile/page.tsx read failed: ${e.message}`); failures++; }
 

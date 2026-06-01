@@ -772,6 +772,7 @@ function migrateJob(raw:Record<string,unknown>):WorkJob{
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 export default function ProfileSurvey(){
+  console.log('render');
   const {user,profile,loading,refreshProfile}=useUser();
   const router=useRouter();
   const supabase=useMemo(()=>createClient(),[]);
@@ -794,27 +795,11 @@ export default function ProfileSurvey(){
   const total=SECTIONS.length;
   const isReview=step>total;
 
-  // Fetch session token ONCE on mount; keep it fresh via onAuthStateChange.
-  // Storing in a ref means saveProgress reads the token synchronously — no
-  // async getSession() call before each upsert.
+  // Redirect to login once auth resolves and there is no user
   useEffect(()=>{
-    let cancelled=false;
-    // onAuthStateChange fires immediately with INITIAL_SESSION from localStorage,
-    // then again whenever the SDK auto-refreshes the token in the background.
-    const {data:{subscription}}=supabase.auth.onAuthStateChange((_evt,session)=>{
-      if(!cancelled)tokenRef.current=session?.access_token??null;
-    });
-    // Belt-and-suspenders: also call getSession() in case the listener is delayed
-    supabase.auth.getSession().then(({data:{session}})=>{
-      if(!cancelled&&!tokenRef.current)tokenRef.current=session?.access_token??null;
-    });
-    // If no token after 3 s the user is not signed in — redirect to login
-    const guard=setTimeout(()=>{
-      if(!cancelled&&!tokenRef.current)router.push('/login');
-    },3000);
-    return()=>{cancelled=true;clearTimeout(guard);subscription.unsubscribe();};
+    if(!loading&&!user)router.push('/login');
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  },[]);
+  },[loading,user?.id]);
 
   // Pre-fill from DB + restore localStorage draft
   useEffect(()=>{
@@ -1012,8 +997,14 @@ export default function ProfileSurvey(){
       const bodyStr=JSON.stringify(sectionPayload);
       console.log('[saveProgress]',sectionLabel,'— payload:',bodyStr.length,'bytes, step:',step);
 
-      // Token was fetched once on mount and is kept fresh by onAuthStateChange.
-      // Reading tokenRef.current here is synchronous — zero auth latency per save.
+      // Lazy token fetch: getSession() reads from cookies (<1 ms for valid sessions).
+      // A network call only happens when the token is expired (~once per hour).
+      // No second onAuthStateChange subscription — avoids the re-render loop where
+      // a second Supabase client caused providers.tsx to refetch the profile repeatedly.
+      if(!tokenRef.current){
+        const {data:{session}}=await supabase.auth.getSession();
+        tokenRef.current=session?.access_token??null;
+      }
       const token=tokenRef.current;
       if(!token)throw new Error('Session expired — reload the page to sign in again');
 
@@ -1043,6 +1034,7 @@ export default function ProfileSurvey(){
           new Promise<never>((_,rej)=>setTimeout(()=>rej(new Error('Save timed out. Your data is saved locally.')),12000)),
         ]);
         if(!res.ok){
+          if(res.status===401)tokenRef.current=null; // force re-fetch on next save attempt
           const errBody=await res.json().catch(()=>({})) as {message?:string};
           throw new Error(errBody.message||`Server error ${res.status}`);
         }
