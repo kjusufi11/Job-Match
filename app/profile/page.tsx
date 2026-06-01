@@ -1,8 +1,7 @@
 'use client';
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@/app/providers';
-import { createClient } from '@/lib/supabase/client';
 import {
   INDUSTRIES, CULTURE_DESCRIPTORS, EMPLOYMENT_TYPES, MGMT_STYLES, TRAVEL_LEVELS,
   SKILL_SUGGESTIONS, UNIVERSITIES, TITLE_SUGGESTIONS, EDUCATION_LEVELS_SEEKER,
@@ -773,9 +772,8 @@ function migrateJob(raw:Record<string,unknown>):WorkJob{
 // ── Page ──────────────────────────────────────────────────────────────────────
 export default function ProfileSurvey(){
   console.log('render');
-  const {user,profile,loading,getToken,refreshProfile}=useUser();
+  const {user,profile,loading,getToken,refreshProfile,supabaseUrl,supabaseKey}=useUser();
   const router=useRouter();
-  const supabase=useMemo(()=>createClient(),[]);
   const prefillDone=useRef(false);
 
   const [step,setStep]=useState(-1);
@@ -999,13 +997,8 @@ export default function ProfileSurvey(){
       const token=getToken();
       if(!token)throw new Error('Session expired — reload the page to sign in again');
 
-      // Step 2: direct REST upsert bypassing @supabase/ssr session wrapper.
-      // URL and key come from the already-connected supabase client so they are
-      // guaranteed correct regardless of build-time env-var inlining.
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const sbUrl:string=(supabase as any).supabaseUrl??SB_URL;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const sbKey:string=(supabase as any).supabaseKey??SB_ANON;
+      const sbUrl=supabaseUrl||SB_URL;
+      const sbKey=supabaseKey||SB_ANON;
       const upsertUrl=`${sbUrl}/rest/v1/profiles`;
       const upsertHeaders={
         'Content-Type':'application/json',
@@ -1058,8 +1051,8 @@ export default function ProfileSurvey(){
       console.log('[submit] token present:',!!token,'uid:',uid,'profile.role:',profile?.role);
       if(!token)throw new Error('Session expired — reload the page to sign in again');
 
-      const sbUrl:string=(supabase as any).supabaseUrl??SB_URL;
-      const sbKey:string=(supabase as any).supabaseKey??SB_ANON;
+      const sbUrl=supabaseUrl||SB_URL;
+      const sbKey=supabaseKey||SB_ANON;
       console.log('[submit] POST',sbUrl+'/rest/v1/profiles');
       const res=await Promise.race([
         fetch(`${sbUrl}/rest/v1/profiles`,{

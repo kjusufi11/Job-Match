@@ -10,9 +10,11 @@ type UserCtx = {
   loading: boolean;
   refreshProfile: () => Promise<void>;
   getToken: () => string | null;
+  supabaseUrl: string;
+  supabaseKey: string;
 };
 
-const UserContext = createContext<UserCtx>({ user: null, profile: null, loading: true, refreshProfile: async () => {}, getToken: () => null });
+const UserContext = createContext<UserCtx>({ user: null, profile: null, loading: true, refreshProfile: async () => {}, getToken: () => null, supabaseUrl: '', supabaseKey: '' });
 
 export function UserProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -104,7 +106,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   }, [supabase, fetchProfile]);
 
   return (
-    <UserContext.Provider value={{ user, profile, loading, refreshProfile, getToken }}>
+    <UserContext.Provider value={{ user, profile, loading, refreshProfile, getToken, supabaseUrl: (supabase as any).supabaseUrl as string, supabaseKey: (supabase as any).supabaseKey as string }}>
       {children}
     </UserContext.Provider>
   );
