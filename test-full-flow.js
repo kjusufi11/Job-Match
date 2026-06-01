@@ -254,19 +254,19 @@ async function run() {
     } else {
       fail(`profile/page.tsx: submit() still uses /api/profile/complete route or missing redirect`); failures++;
     }
-    if (pageSrc.includes('tokenRef=useRef<string|null>(null)') && pageSrc.includes('if(!tokenRef.current)') && pageSrc.includes('const token=tokenRef.current')) {
-      pass(`profile/page.tsx: tokenRef pattern — lazy token fetch, ref cached for reuse`);
+    if (pageSrc.includes('getToken') && pageSrc.includes('const token=getToken()') && !pageSrc.includes('tokenRef=useRef')) {
+      pass(`profile/page.tsx: token from context getToken() — no local getSession() calls`);
     } else {
-      fail(`profile/page.tsx: tokenRef lazy-fetch pattern not found`); failures++;
+      fail(`profile/page.tsx: getToken() pattern not found or tokenRef still present`); failures++;
     }
-    // Verify saveProgress uses lazy getSession() guarded by if(!tokenRef.current)
+    // Verify saveProgress uses getToken() not getSession()
     const saveProgressBody = pageSrc.slice(pageSrc.indexOf('async function saveProgress'));
     const saveEnd = saveProgressBody.indexOf('\n  async function ') || saveProgressBody.indexOf('\n  function ') || saveProgressBody.length;
     const spBody = saveProgressBody.slice(0, saveEnd);
-    if (spBody.includes('if(!tokenRef.current)') && spBody.includes('getSession()')) {
-      pass(`profile/page.tsx: saveProgress uses lazy getSession() — only fetches when tokenRef is empty`);
+    if (spBody.includes('getToken()') && !spBody.includes('getSession()')) {
+      pass(`profile/page.tsx: saveProgress uses context getToken() — no blocking getSession() call`);
     } else {
-      fail(`profile/page.tsx: saveProgress lazy-token pattern not found`); failures++;
+      fail(`profile/page.tsx: saveProgress still calls getSession() directly`); failures++;
     }
   } catch (e) { fail(`profile/page.tsx read failed: ${e.message}`); failures++; }
 

@@ -773,11 +773,10 @@ function migrateJob(raw:Record<string,unknown>):WorkJob{
 // ── Page ──────────────────────────────────────────────────────────────────────
 export default function ProfileSurvey(){
   console.log('render');
-  const {user,profile,loading,refreshProfile}=useUser();
+  const {user,profile,loading,getToken,refreshProfile}=useUser();
   const router=useRouter();
   const supabase=useMemo(()=>createClient(),[]);
   const prefillDone=useRef(false);
-  const tokenRef=useRef<string|null>(null);
 
   const [step,setStep]=useState(-1);
   const [data,setData]=useState<SurveyData>(INIT);
@@ -997,15 +996,7 @@ export default function ProfileSurvey(){
       const bodyStr=JSON.stringify(sectionPayload);
       console.log('[saveProgress]',sectionLabel,'— payload:',bodyStr.length,'bytes, step:',step);
 
-      // Lazy token fetch: getSession() reads from cookies (<1 ms for valid sessions).
-      // A network call only happens when the token is expired (~once per hour).
-      // No second onAuthStateChange subscription — avoids the re-render loop where
-      // a second Supabase client caused providers.tsx to refetch the profile repeatedly.
-      if(!tokenRef.current){
-        const {data:{session}}=await supabase.auth.getSession();
-        tokenRef.current=session?.access_token??null;
-      }
-      const token=tokenRef.current;
+      const token=getToken();
       if(!token)throw new Error('Session expired — reload the page to sign in again');
 
       // Step 2: direct REST upsert bypassing @supabase/ssr session wrapper.
@@ -1034,7 +1025,6 @@ export default function ProfileSurvey(){
           new Promise<never>((_,rej)=>setTimeout(()=>rej(new Error('Save timed out. Your data is saved locally.')),12000)),
         ]);
         if(!res.ok){
-          if(res.status===401)tokenRef.current=null; // force re-fetch on next save attempt
           const errBody=await res.json().catch(()=>({})) as {message?:string};
           throw new Error(errBody.message||`Server error ${res.status}`);
         }
@@ -1064,15 +1054,7 @@ export default function ProfileSurvey(){
     // Hard safety net: no matter what hangs inside, clear the spinner after 16s
     const safetyTimer=setTimeout(()=>{setSaving(false);setSaveError('Submit timed out. Your section data is saved — please try again.');},16000);
     try{
-      // getSession() with 4s timeout — prevents infinite hang if SSR client blocks on token refresh
-      if(!tokenRef.current){
-        const result=await Promise.race([
-          supabase.auth.getSession(),
-          new Promise<{data:{session:null}}>(res=>setTimeout(()=>res({data:{session:null}}),4000)),
-        ]);
-        tokenRef.current=result.data.session?.access_token??null;
-      }
-      const token=tokenRef.current;
+      const token=getToken();
       console.log('[submit] token present:',!!token,'uid:',uid,'profile.role:',profile?.role);
       if(!token)throw new Error('Session expired — reload the page to sign in again');
 
@@ -1094,7 +1076,6 @@ export default function ProfileSurvey(){
       ]);
       console.log('[submit] response status:',res.status);
       if(!res.ok){
-        if(res.status===401)tokenRef.current=null;
         const errBody=await res.json().catch(()=>({})) as {message?:string};
         throw new Error(errBody.message||`Server error ${res.status}`);
       }
@@ -1108,7 +1089,6 @@ export default function ProfileSurvey(){
       console.log('[submit] success — navigating to /dashboard');
       router.push('/dashboard');
     }catch(err:unknown){
-      if((err as Error)?.message?.includes('401'))tokenRef.current=null;
       console.error('[submit] error:',err);
       setSaveError((err as Error)?.message||'Save failed. Your answers are saved — please try again.');
     }finally{clearTimeout(safetyTimer);setSaving(false);}

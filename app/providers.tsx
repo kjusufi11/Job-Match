@@ -1,5 +1,5 @@
 'use client';
-import { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { Profile } from '@/lib/types';
 import type { User } from '@supabase/supabase-js';
@@ -9,14 +9,16 @@ type UserCtx = {
   profile: Profile | null;
   loading: boolean;
   refreshProfile: () => Promise<void>;
+  getToken: () => string | null;
 };
 
-const UserContext = createContext<UserCtx>({ user: null, profile: null, loading: true, refreshProfile: async () => {} });
+const UserContext = createContext<UserCtx>({ user: null, profile: null, loading: true, refreshProfile: async () => {}, getToken: () => null });
 
 export function UserProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const tokenRef = useRef<string | null>(null);
 
   // Detect version changes: if the server's deploy ID differs from the one stored in
   // sessionStorage, a new version was deployed — reload once to get fresh assets.
@@ -47,6 +49,8 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     if (user) await fetchProfile(user.id);
   }, [user, fetchProfile]);
 
+  const getToken = useCallback(() => tokenRef.current, []);
+
   useEffect(() => {
     let cancelled = false;
 
@@ -65,6 +69,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         const { data: { session } } = await supabase.auth.getSession();
         clearTimeout(fallback);
         if (cancelled) return;
+        tokenRef.current = session?.access_token ?? null;
         const u = session?.user ?? null;
         setUser(u);
         setLoading(false);
@@ -80,6 +85,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (cancelled) return;
+      tokenRef.current = session?.access_token ?? null;
       const u = session?.user ?? null;
       setUser(u);
       setLoading(false);
@@ -98,7 +104,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   }, [supabase, fetchProfile]);
 
   return (
-    <UserContext.Provider value={{ user, profile, loading, refreshProfile }}>
+    <UserContext.Provider value={{ user, profile, loading, refreshProfile, getToken }}>
       {children}
     </UserContext.Provider>
   );
