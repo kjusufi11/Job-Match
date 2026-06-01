@@ -70,9 +70,9 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         tokenRef.current = session?.access_token ?? null;
         const u = session?.user ?? null;
         setUser(u);
-        setLoading(false);
         if (u) await fetchProfile(u.id);
         else setProfile(null);
+        if (!cancelled) setLoading(false);
       } catch {
         clearTimeout(fallback);
         if (!cancelled) { setUser(null); setProfile(null); setLoading(false); }
@@ -86,13 +86,13 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       tokenRef.current = session?.access_token ?? null;
       const u = session?.user ?? null;
       setUser(u);
-      setLoading(false);
       try {
         if (u) await fetchProfile(u.id);
         else setProfile(null);
       } catch {
         if (!cancelled) setProfile(null);
       }
+      if (!cancelled) setLoading(false);
     });
 
     return () => {

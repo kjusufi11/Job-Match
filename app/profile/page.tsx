@@ -1029,6 +1029,12 @@ export default function ProfileSurvey(){
         clearTimeout(slowTimer);setSlowSave(false);
       }
 
+      // Post-upsert verification: re-fetch a sentinel field for this section to confirm DB write
+      try{
+        const verifyField=step===1?'first_name':step===2?'summary':step===3?'degrees':step===4?'jobs_history':step===5?'skills':step===6?'target_titles':step===7?'target_culture':step===8?'comm_style':'primary_goal';
+        const verifyRes=await fetch(`${supabaseUrl||SB_URL}/rest/v1/profiles?id=eq.${uid}&select=${verifyField}`,{headers:{'apikey':supabaseKey||SB_ANON,'Authorization':`Bearer ${getToken()}`}});
+        if(verifyRes.ok){const rows=await verifyRes.json();console.log(`[verify s${step}]`,verifyField,':',rows?.[0]?.[verifyField]);}
+      }catch{}
       setSectionSaved(true);setSaveError('');setTimeout(()=>setSectionSaved(false),3000);
       setSaveLog(prev=>[{section:sectionLabel,status:'saved' as const,msg:'',time:saveTime},...prev].slice(0,20));
       refreshProfile().catch(()=>{});
@@ -1083,7 +1089,8 @@ export default function ProfileSurvey(){
       try{localStorage.removeItem(`matcht_profile_draft_${uid}`);}catch{}
       try{localStorage.removeItem(`matcht_profile_step_${uid}`);}catch{}
       try{localStorage.removeItem(`matcht_resume_seen_${uid}`);}catch{}
-      console.log('[submit] success — navigating to /dashboard');
+      console.log('[submit] success — refreshing profile then navigating to /dashboard');
+      try{await Promise.race([refreshProfile(),new Promise<void>(r=>setTimeout(r,3000))]);}catch{}
       router.push('/dashboard');
     }catch(err:unknown){
       console.error('[submit] error:',err);
