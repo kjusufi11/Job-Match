@@ -1006,7 +1006,10 @@ export default function ProfileSurvey(){
         'Authorization':`Bearer ${token}`,
         'Prefer':'resolution=merge-duplicates,return=minimal',
       };
-      console.log('[saveProgress] URL:',upsertUrl,'| apikey prefix:',sbKey?.slice(0,24),'| token prefix:',token.slice(0,20));
+      console.log('FETCH URL >>>', upsertUrl);
+      console.log('FETCH KEY >>>', sbKey?.slice(0,30));
+      console.log('SUPABASE CTX >>>', supabaseUrl, '/', supabaseKey?.slice(0,20));
+      console.log('SB_URL ENV >>>', SB_URL);
       const slowTimer=setTimeout(()=>setSlowSave(true),5000);
       try{
         const res=await Promise.race([
