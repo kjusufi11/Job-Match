@@ -1061,18 +1061,24 @@ export default function ProfileSurvey(){
     const uid=profile?.id??user?.id;
     if(!uid){console.error('[submit] abort: no uid');return;}
     setSaving(true);setSaveError('');
+    // Hard safety net: no matter what hangs inside, clear the spinner after 16s
+    const safetyTimer=setTimeout(()=>{setSaving(false);setSaveError('Submit timed out. Your section data is saved — please try again.');},16000);
     try{
-      // Lazy token fetch — same pattern as saveProgress
+      // getSession() with 4s timeout — prevents infinite hang if SSR client blocks on token refresh
       if(!tokenRef.current){
-        const {data:{session}}=await supabase.auth.getSession();
-        tokenRef.current=session?.access_token??null;
+        const result=await Promise.race([
+          supabase.auth.getSession(),
+          new Promise<{data:{session:null}}>(res=>setTimeout(()=>res({data:{session:null}}),4000)),
+        ]);
+        tokenRef.current=result.data.session?.access_token??null;
       }
       const token=tokenRef.current;
+      console.log('[submit] token present:',!!token,'uid:',uid,'profile.role:',profile?.role);
       if(!token)throw new Error('Session expired — reload the page to sign in again');
 
       const sbUrl:string=(supabase as any).supabaseUrl??SB_URL;
       const sbKey:string=(supabase as any).supabaseKey??SB_ANON;
-      console.log('[submit] URL:',sbUrl,'| uid:',uid);
+      console.log('[submit] POST',sbUrl+'/rest/v1/profiles');
       const res=await Promise.race([
         fetch(`${sbUrl}/rest/v1/profiles`,{
           method:'POST',
@@ -1082,10 +1088,11 @@ export default function ProfileSurvey(){
             'Authorization':`Bearer ${token}`,
             'Prefer':'resolution=merge-duplicates,return=minimal',
           },
-          body:JSON.stringify({id:uid,role:profile?.role??'seeker',profile_complete:true,updated_at:new Date().toISOString()}),
+          body:JSON.stringify({id:uid,role:profile?.role??'seeker',profile_complete:true}),
         }),
-        new Promise<never>((_,rej)=>setTimeout(()=>rej(new Error('Submit timed out. Your data is saved — please try again.')),12000)),
+        new Promise<never>((_,rej)=>setTimeout(()=>rej(new Error('Submit timed out — please try again.')),12000)),
       ]);
+      console.log('[submit] response status:',res.status);
       if(!res.ok){
         if(res.status===401)tokenRef.current=null;
         const errBody=await res.json().catch(()=>({})) as {message?:string};
@@ -1098,11 +1105,13 @@ export default function ProfileSurvey(){
       try{localStorage.removeItem(`matcht_profile_draft_${uid}`);}catch{}
       try{localStorage.removeItem(`matcht_profile_step_${uid}`);}catch{}
       try{localStorage.removeItem(`matcht_resume_seen_${uid}`);}catch{}
+      console.log('[submit] success — navigating to /dashboard');
       router.push('/dashboard');
     }catch(err:unknown){
       if((err as Error)?.message?.includes('401'))tokenRef.current=null;
-      setSaveError((err as Error)?.message||'Save failed. Your answers are saved locally — please try again.');
-    }finally{setSaving(false);}
+      console.error('[submit] error:',err);
+      setSaveError((err as Error)?.message||'Save failed. Your answers are saved — please try again.');
+    }finally{clearTimeout(safetyTimer);setSaving(false);}
   }
 
   if(loading||step<0){
