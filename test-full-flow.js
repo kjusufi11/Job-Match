@@ -249,10 +249,10 @@ async function run() {
     } else {
       fail(`profile/page.tsx: direct-fetch save approach not found`); failures++;
     }
-    if (pageSrc.includes('profile_complete:true') && pageSrc.includes("router.push('/dashboard')") && !pageSrc.includes("fetch('/api/profile/complete'")) {
-      pass(`profile/page.tsx: submit() uses direct REST upsert for profile_complete, redirects to /dashboard`);
+    if (pageSrc.includes('profile_complete:true') && pageSrc.includes("window.location.href='/dashboard'") && !pageSrc.includes("fetch('/api/profile/complete'")) {
+      pass(`profile/page.tsx: submit() uses direct REST upsert for profile_complete, hard-redirects to /dashboard`);
     } else {
-      fail(`profile/page.tsx: submit() still uses /api/profile/complete route or missing redirect`); failures++;
+      fail(`profile/page.tsx: submit() still uses /api/profile/complete route or missing hard redirect`); failures++;
     }
     if (pageSrc.includes('getToken') && pageSrc.includes('const token=getToken()') && !pageSrc.includes('tokenRef=useRef')) {
       pass(`profile/page.tsx: token from context getToken() — no local getSession() calls`);

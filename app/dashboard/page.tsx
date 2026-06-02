@@ -1,64 +1,83 @@
 'use client';
-import { useRouter } from 'next/navigation';
+import { useEffect, useRef } from 'react';
 import { useUser } from '@/app/providers';
-import { C, F, Spinner } from '@/components/ui';
 
-export default function SeekerDashboard() {
+const C = {
+  bg:'#F0F4F7', white:'#FFFFFF', teal:'#1A8C8C', tealDim:'#1A8C8C12', tealBorder:'#1A8C8C35',
+  slate:'#1E2D3A', gray400:'#8FAABB', gray600:'#4E6475', border:'#D4E3EC',
+  green:'#19A87A', greenDim:'#19A87A14', greenBorder:'#19A87A40',
+  amber:'#C9870C', amberDim:'#C9870C14', amberBorder:'#C9870C40',
+};
+const F = "'Plus Jakarta Sans','Helvetica Neue',sans-serif";
+
+export default function Dashboard() {
   const { user, profile, loading } = useUser();
-  const router = useRouter();
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  if (loading) return <Spinner />;
+  // After 3 s with no user, redirect to login — never block the render on this
+  useEffect(() => {
+    if (!loading && !user) {
+      window.location.href = '/login';
+      return;
+    }
+    if (!user) {
+      timerRef.current = setTimeout(() => {
+        if (!user) window.location.href = '/login';
+      }, 3000);
+    }
+    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, user?.id]);
 
-  if (!user) {
-    router.replace('/login');
-    return <Spinner />;
-  }
-
-  if (!profile?.profile_complete) {
-    router.replace('/profile');
-    return <Spinner />;
-  }
-
-  const skills = Array.isArray(profile.skills) ? (profile.skills as string[]) : [];
-  const firstName = profile.name?.split(' ')[0] ?? 'there';
+  // Derive display values from whatever is available right now
+  const rawName = profile?.name ?? (user?.email ?? '');
+  const firstName = rawName.includes('@')
+    ? rawName.split('@')[0]
+    : (rawName.split(' ')[0] || rawName);
+  const skills = Array.isArray(profile?.skills) ? (profile!.skills as string[]) : [];
+  const isLive = !!profile?.profile_complete;
+  const hasProfile = !!profile;
 
   return (
     <div style={{ background: C.bg, minHeight: '100vh', fontFamily: F, padding: '32px 16px' }}>
-      <div style={{ maxWidth: 720, margin: '0 auto' }}>
+      <div style={{ maxWidth: 700, margin: '0 auto' }}>
 
-        {/* Hero card */}
-        <div style={{ background: C.white, borderRadius: 14, border: `1px solid ${C.border}`, padding: '28px 28px 24px', marginBottom: 14 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 14 }}>
-            <div style={{ width: 48, height: 48, borderRadius: '50%', background: C.tealDim, border: `2px solid ${C.tealBorder}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, fontWeight: 800, color: C.teal, flexShrink: 0 }}>
-              {(profile.name?.[0] ?? '?').toUpperCase()}
-            </div>
-            <div>
-              <h1 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: C.slate, letterSpacing: -0.4 }}>Hey, {firstName}</h1>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: C.greenDim, color: C.green, fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20, marginTop: 5 }}>
-                ✓ Profile live
-              </span>
+        {/* Greeting */}
+        <h1 style={{ margin: '0 0 20px', fontSize: 22, fontWeight: 800, color: C.slate, letterSpacing: -0.4 }}>
+          Welcome back{firstName ? `, ${firstName}` : ''}.
+        </h1>
+
+        {/* Profile live / complete-your-profile banner */}
+        {isLive && (
+          <div style={{ background: C.greenDim, border: `1px solid ${C.greenBorder}`, borderRadius: 10, padding: '14px 18px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontSize: 16 }}>✓</span>
+            <span style={{ fontSize: 14, fontWeight: 700, color: C.green }}>Your profile is live — recruiters can find you now.</span>
+          </div>
+        )}
+
+        {hasProfile && !isLive && (
+          <div style={{ background: C.amberDim, border: `1px solid ${C.amberBorder}`, borderRadius: 10, padding: '14px 18px', marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 14, fontWeight: 600, color: C.amber }}>Complete your profile to go live.</span>
+            <a href="/profile" style={{ fontSize: 13, fontWeight: 700, color: C.white, background: C.amber, padding: '8px 16px', borderRadius: 7, textDecoration: 'none', whiteSpace: 'nowrap' }}>
+              Continue →
+            </a>
+          </div>
+        )}
+
+        {/* Basic info — renders as data arrives, nothing hidden */}
+        {hasProfile && (
+          <div style={{ background: C.white, borderRadius: 12, border: `1px solid ${C.border}`, padding: '20px 22px', marginBottom: 14 }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: C.gray400, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 }}>Your info</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16 }}>
+              {profile!.headline && <InfoRow label="Target role" value={profile!.headline as string} />}
+              {profile!.location && <InfoRow label="Location" value={profile!.location as string} />}
+              {profile!.seniority && <InfoRow label="Level" value={profile!.seniority as string} />}
+              {profile!.total_exp != null && (
+                <InfoRow label="Experience" value={`${profile!.total_exp} yr${(profile!.total_exp as number) !== 1 ? 's' : ''}`} />
+              )}
             </div>
           </div>
-          <p style={{ color: C.gray600, margin: 0, fontSize: 14, lineHeight: 1.6 }}>
-            Your profile is live — recruiters can now find you. We'll notify you the moment a strong match arrives. No applying, no forms. Just matches.
-          </p>
-        </div>
-
-        {/* Key info row */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 10, marginBottom: 14 }}>
-          {profile.headline && (
-            <InfoCard label="Role" value={profile.headline} />
-          )}
-          {profile.location && (
-            <InfoCard label="Location" value={profile.location} />
-          )}
-          {profile.seniority && (
-            <InfoCard label="Level" value={profile.seniority as string} />
-          )}
-          {profile.total_exp != null && (
-            <InfoCard label="Experience" value={`${profile.total_exp} yr${(profile.total_exp as number) !== 1 ? 's' : ''}`} />
-          )}
-        </div>
+        )}
 
         {/* Skills */}
         {skills.length > 0 && (
@@ -72,33 +91,30 @@ export default function SeekerDashboard() {
           </div>
         )}
 
-        {/* Matches coming soon banner */}
-        <div style={{ background: C.tealDim, border: `1px solid ${C.tealBorder}`, borderRadius: 12, padding: '16px 20px', marginBottom: 14 }}>
+        {/* Matches coming soon */}
+        <div style={{ background: C.tealDim, border: `1px solid ${C.tealBorder}`, borderRadius: 10, padding: '14px 18px', marginBottom: 14 }}>
           <p style={{ margin: 0, fontSize: 13, color: C.teal, fontWeight: 600 }}>
-            Match results coming soon — once recruiters start posting roles, your top matches will appear here automatically.
+            Match results coming soon — once recruiters post roles, your top matches appear here automatically.
           </p>
         </div>
 
-        {/* Edit profile */}
-        <div>
-          <button
-            onClick={() => router.push('/profile')}
-            style={{ background: 'none', border: `1.5px solid ${C.border}`, color: C.gray600, fontSize: 13, fontWeight: 600, padding: '9px 18px', borderRadius: 8, cursor: 'pointer', fontFamily: F }}
-          >
+        {/* Edit profile link */}
+        {isLive && (
+          <a href="/profile" style={{ fontSize: 13, fontWeight: 600, color: C.gray600, textDecoration: 'none', borderBottom: `1px solid ${C.border}` }}>
             Edit profile
-          </button>
-        </div>
+          </a>
+        )}
 
       </div>
     </div>
   );
 }
 
-function InfoCard({ label, value }: { label: string; value: string }) {
+function InfoRow({ label, value }: { label: string; value: string }) {
   return (
-    <div style={{ background: C.white, borderRadius: 11, border: `1px solid ${C.border}`, padding: '14px 18px' }}>
-      <div style={{ fontSize: 10, fontWeight: 700, color: C.gray400, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 5 }}>{label}</div>
-      <div style={{ fontWeight: 700, color: C.slate, fontSize: 14 }}>{value}</div>
+    <div style={{ minWidth: 140 }}>
+      <div style={{ fontSize: 11, color: C.gray400, fontWeight: 600, marginBottom: 2 }}>{label}</div>
+      <div style={{ fontSize: 14, fontWeight: 700, color: C.slate }}>{value}</div>
     </div>
   );
 }

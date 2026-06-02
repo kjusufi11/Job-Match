@@ -1085,9 +1085,8 @@ export default function ProfileSurvey(){
       try{localStorage.removeItem(`matcht_profile_draft_${uid}`);}catch{}
       try{localStorage.removeItem(`matcht_profile_step_${uid}`);}catch{}
       try{localStorage.removeItem(`matcht_resume_seen_${uid}`);}catch{}
-      console.log('[submit] success — refreshing profile then navigating to /dashboard');
-      try{await Promise.race([refreshProfile(),new Promise<void>(r=>setTimeout(r,3000))]);}catch{}
-      router.push('/dashboard');
+      console.log('[submit] success — navigating to /dashboard');
+      window.location.href='/dashboard';
     }catch(err:unknown){
       console.error('[submit] error:',err);
       setSaveError((err as Error)?.message||'Save failed. Your answers are saved — please try again.');
