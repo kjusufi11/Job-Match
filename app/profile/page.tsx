@@ -805,18 +805,16 @@ export default function ProfileSurvey(){
     const uid=profile?.id??user?.id;
 
     if(!profile){
-      // No DB row yet — brand-new user
+      // No DB row yet — start at step 1. Resume upload (step 0) is opt-in via "Import resume" button only.
       if(uid){
         try{
-          const hasSeen=localStorage.getItem(`matcht_resume_seen_${uid}`)==='true';
-          if(!hasSeen){prefillDone.current=true;setStep(0);return;}
           const stepStr=localStorage.getItem(`matcht_profile_step_${uid}`);
           if(stepStr){const n=parseInt(stepStr);if(n>=1&&n<=total+1)setStep(n);}
           const s=localStorage.getItem(`matcht_profile_draft_${uid}`);
           if(s){prefillDone.current=true;setData(JSON.parse(s) as SurveyData);setShowDraftBanner(true);return;}
         }catch{}
       }
-      prefillDone.current=true;setStep(0);return;
+      prefillDone.current=true;setStep(1);return;
     }
 
     setIsEdit(!!profile.profile_complete);
@@ -885,11 +883,9 @@ export default function ProfileSurvey(){
       prefillDone.current=true;setStep(1);setData(fp);return;
     }
 
-    // Incomplete profile — check resume screen and restore draft/step
+    // Incomplete profile — restore saved step/draft or start at step 1.
+    // Resume upload (step 0) is opt-in only; never auto-routed here.
     const id=profile.id;
-    // Skip resume page if localStorage flag is set OR if profile already has data in DB
-    const hasSeen=localStorage.getItem(`matcht_resume_seen_${id}`)==='true'||!!(profile.first_name||profile.headline||profile.summary);
-    if(!hasSeen){prefillDone.current=true;setStep(0);return;}
     try{
       const stepStr=localStorage.getItem(`matcht_profile_step_${id}`);
       if(stepStr){const n=parseInt(stepStr);if(n>=1&&n<=total+1)setStep(n);}
