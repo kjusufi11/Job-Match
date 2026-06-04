@@ -103,6 +103,9 @@ export type Profile = {
   notif_email_feedback?: boolean | null;
   notif_sms_alerts?: boolean | null;
 
+  // ── Resume ──────────────────────────────────────────────────
+  resume_text?: string | null;
+
   // ── Meta ────────────────────────────────────────────────────
   video_url?: string | null;
   profile_complete?: boolean;

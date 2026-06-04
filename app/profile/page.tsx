@@ -285,12 +285,57 @@ function Progress({step,total,sections}:{step:number;total:number;sections:{labe
   </div>;
 }
 
+// ── Resume parsing types & helpers ───────────────────────────────────────────
+type ParsedResume = {
+  firstName?:string|null; lastName?:string|null; email?:string|null; phone?:string|null;
+  location?:string|null; headline?:string|null; summary?:string|null;
+  skills?:string[];
+  jobs?:{company:string;title:string;location?:string|null;startMonth?:string|null;startYear?:string|null;endMonth?:string|null;endYear?:string|null;current?:boolean;description?:string|null}[];
+  degrees?:{level?:string|null;field?:string|null;university?:string|null;gradYear?:string|null;gpa?:string|null}[];
+  resumeText?:string;
+};
+function mergeParsed(cur:SurveyData,p:ParsedResume):SurveyData{
+  const jobs=p.jobs?.length?p.jobs.map(j=>({...BJ,company:j.company||'',title:j.title||'',location:j.location||'',startMonth:j.startMonth||'',startYear:j.startYear||'',endMonth:j.endMonth||'',endYear:j.endYear||'',current:!!j.current,description:j.description||'',accomplishments:['','','']})):cur.jobs;
+  const degrees=p.degrees?.length?p.degrees.map(d=>({...BD,level:d.level||'',field:d.field||'',university:d.university||'',gradYear:d.gradYear||'',gpa:d.gpa||''})):cur.degrees;
+  return{...cur,
+    firstName:p.firstName||cur.firstName,lastName:p.lastName||cur.lastName,
+    email:p.email||cur.email,phone:p.phone||cur.phone,location:p.location||cur.location,
+    headline:p.headline||cur.headline,summary:p.summary||cur.summary,
+    skills:p.skills?.length?p.skills:cur.skills,
+    jobs,degrees,
+  };
+}
+
 // ── Resume Upload (inline Step 0) ─────────────────────────────────────────────
-function ResumeUpload(){
+function ResumeUpload({onParsed,onSkip}:{onParsed:(d:ParsedResume)=>void;onSkip:()=>void}){
   const [dragging,setDragging]=useState(false);
   const [file,setFile]=useState<File|null>(null);
+  const [parsing,setParsing]=useState(false);
+  const [parseError,setParseError]=useState('');
   const ref=useRef<HTMLInputElement>(null);
-  function handleFile(f:File|null){if(f&&(f.type==='application/pdf'||f.name.endsWith('.docx')||f.name.endsWith('.doc')))setFile(f);}
+  function handleFile(f:File|null){
+    if(f&&(f.type==='application/pdf'||f.name.toLowerCase().endsWith('.docx')||f.name.toLowerCase().endsWith('.doc'))){
+      setFile(f);setParseError('');
+    }
+  }
+  async function parse(){
+    if(!file)return;
+    setParsing(true);setParseError('');
+    try{
+      const fd=new FormData();fd.append('file',file);
+      const res=await fetch('/api/parse-resume',{method:'POST',body:fd});
+      if(!res.ok){
+        const b=await res.json().catch(()=>({})) as {error?:string};
+        throw new Error(b.error||`Server error ${res.status}`);
+      }
+      const parsed:ParsedResume=await res.json();
+      onParsed(parsed);
+    }catch(err:unknown){
+      const msg=(err as Error)?.message||'Failed to parse. Try again or fill in manually.';
+      setParseError(msg);
+      setParsing(false);
+    }
+  }
   return<div>
     <div style={{textAlign:'center',marginBottom:28}}>
       <div style={{fontSize:44,marginBottom:12}}>📄</div>
@@ -299,10 +344,14 @@ function ResumeUpload(){
     </div>
     <div onDragOver={e=>{e.preventDefault();setDragging(true);}} onDragLeave={()=>setDragging(false)}
       onDrop={e=>{e.preventDefault();setDragging(false);handleFile(e.dataTransfer.files[0]??null);}}
-      onClick={()=>ref.current?.click()}
-      style={{border:`2px dashed ${dragging?C.teal:file?C.green:C.gray200}`,borderRadius:12,padding:'28px 24px',textAlign:'center',cursor:'pointer',background:dragging?C.tealDim:file?C.greenDim:C.bg,transition:'all .2s',marginBottom:14}}>
+      onClick={()=>!parsing&&ref.current?.click()}
+      style={{border:`2px dashed ${dragging?C.teal:file?C.green:C.gray200}`,borderRadius:12,padding:'28px 24px',textAlign:'center',cursor:parsing?'default':'pointer',background:dragging?C.tealDim:file?C.greenDim:C.bg,transition:'all .2s',marginBottom:14}}>
       <input ref={ref} type="file" accept=".pdf,.doc,.docx" onChange={e=>handleFile(e.target.files?.[0]??null)} style={{display:'none'}}/>
-      {file?<>
+      {parsing?<>
+        <div style={{fontSize:28,marginBottom:8}}>⏳</div>
+        <div style={{fontWeight:700,fontSize:14,color:C.teal}}>Reading your resume…</div>
+        <div style={{fontSize:12,color:C.gray400,marginTop:4}}>This takes 5–10 seconds</div>
+      </>:file?<>
         <div style={{fontSize:28,marginBottom:6}}>✅</div>
         <div style={{fontWeight:700,fontSize:14,color:C.green,marginBottom:3}}>{file.name}</div>
         <div style={{fontSize:12,color:C.gray400}}>Click to choose a different file</div>
@@ -312,6 +361,17 @@ function ResumeUpload(){
         <div style={{fontSize:12,color:C.gray400,marginBottom:6}}>or click to browse · PDF, DOC, DOCX</div>
       </>}
     </div>
+    {parseError&&(
+      <div style={{background:C.redDim,border:`1px solid ${C.red}44`,borderRadius:9,padding:'11px 14px',marginBottom:14,fontSize:13,color:C.red,fontFamily:F}}>
+        {parseError}&nbsp;
+        <button onClick={onSkip} style={{background:'none',border:'none',color:C.red,fontWeight:700,cursor:'pointer',fontFamily:F,textDecoration:'underline',fontSize:13}}>Fill in manually →</button>
+      </div>
+    )}
+    {file&&!parsing&&!parseError&&(
+      <button onClick={parse} style={{width:'100%',padding:'13px 0',borderRadius:9,background:C.teal,color:C.white,border:'none',fontWeight:700,fontSize:15,cursor:'pointer',fontFamily:F,marginBottom:10,boxShadow:`0 2px 12px ${C.teal}44`}}>
+        Parse my resume →
+      </button>
+    )}
     <p style={{textAlign:'center',fontSize:11,color:C.gray400,margin:0,lineHeight:1.5}}>Used only to pre-fill your profile. Never shared with employers.</p>
   </div>;
 }
@@ -789,7 +849,28 @@ export default function ProfileSurvey(){
   const [showDraftBanner,setShowDraftBanner]=useState(false);
   const [saveLog,setSaveLog]=useState<SaveEntry[]>([]);
   const [slowSave,setSlowSave]=useState(false);
+  const [parsedBanner,setParsedBanner]=useState(false);
   const total=SECTIONS.length;
+
+  function handleParsed(parsed:ParsedResume){
+    setData(prev=>mergeParsed(prev,parsed));
+    setParsedBanner(true);
+    // Background-save resume_text to profiles table
+    if(parsed.resumeText){
+      const uid=profile?.id??user?.id;
+      const token=getToken();
+      const url=supabaseUrl||SB_URL;
+      const key=supabaseKey||SB_ANON;
+      if(uid&&token&&url&&key){
+        fetch(`${url}/rest/v1/profiles`,{
+          method:'POST',
+          headers:{'Content-Type':'application/json','apikey':key,'Authorization':`Bearer ${token}`,'Prefer':'resolution=merge-duplicates,return=minimal'},
+          body:JSON.stringify({id:uid,resume_text:parsed.resumeText}),
+        }).catch(()=>{});
+      }
+    }
+    go(1);
+  }
   const isReview=step>total;
 
   // First log on every render so we can see what's happening
@@ -1164,6 +1245,12 @@ export default function ProfileSurvey(){
 
       {/* Content */}
       <div style={{maxWidth:680,margin:'28px auto 0',padding:'0 16px'}}>
+        {parsedBanner&&step>0&&(
+          <div style={{background:C.greenDim,border:`1px solid ${C.green}44`,borderRadius:9,padding:'12px 16px',marginBottom:14,display:'flex',alignItems:'center',justifyContent:'space-between',fontSize:13,color:C.green,fontFamily:F,fontWeight:600}}>
+            <span>✓ Resume parsed — review your info below and fill in anything that was missed.</span>
+            <button onClick={()=>setParsedBanner(false)} style={{background:'none',border:'none',color:C.green,cursor:'pointer',fontSize:18,lineHeight:1,padding:'0 0 0 12px',fontWeight:400}}>×</button>
+          </div>
+        )}
         {showDraftBanner&&step>0&&(
           <div style={{background:C.tealDim,border:`1px solid ${C.tealBorder}`,borderRadius:9,padding:'12px 16px',marginBottom:14,display:'flex',alignItems:'center',justifyContent:'space-between',fontSize:13,color:C.teal,fontFamily:F,fontWeight:600}}>
             <span>📋 Draft restored — picking up where you left off. Your answers are safe.</span>
@@ -1172,7 +1259,7 @@ export default function ProfileSurvey(){
         )}
         {step>0&&<Progress step={Math.max(0,step-1)} total={total} sections={SECTIONS}/>}
         <Card style={{marginBottom:14}}>
-          {step===0&&<ResumeUpload/>}
+          {step===0&&<ResumeUpload onParsed={handleParsed} onSkip={()=>go(1)}/>}
           {step>0&&!isReview&&Object.keys(errors).length>0&&<div style={{background:C.redDim,border:`1px solid ${C.red}`,borderRadius:9,padding:'12px 16px',marginBottom:20,fontSize:13,color:C.red,fontFamily:F,fontWeight:600}}>Please fill in the required fields highlighted below.</div>}
           {step>0&&(isReview?<ReviewScreen data={data}/>:SecComp?<SecComp d={data} set={setData} errors={errors}/>:null)}
         </Card>
