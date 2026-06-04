@@ -42,15 +42,16 @@ export default function Dashboard() {
   const timerRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
 
-  // Redirect to login if no user after 3 s
+  // Redirect to login if no user after 3 s; redirect recruiters to their dashboard
   useEffect(() => {
     if (!loading && !user) { window.location.href = '/login'; return; }
+    if (!loading && profile?.role === 'recruiter') { window.location.href = '/recruiter/dashboard'; return; }
     if (!user) {
       timerRef.current = setTimeout(() => { window.location.href = '/login'; }, 3000);
     }
     return () => { if (timerRef.current) clearTimeout(timerRef.current); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, user?.id]);
+  }, [loading, user?.id, profile?.role]);
 
   // Use context profile the moment it arrives
   useEffect(() => {

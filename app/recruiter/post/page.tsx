@@ -435,7 +435,7 @@ export default function RecruiterPost(){
         <div style={{background:C.tealDim,border:`1px solid ${C.tealBorder}`,borderRadius:10,padding:'16px 18px',marginBottom:20}}>
           <p style={{fontSize:13,color:C.teal,fontWeight:600,margin:0}}>Next: review your ranked candidate list and shortlist your top picks.</p>
         </div>
-        <button onClick={()=>router.push('/recruiter/jobs')} style={{padding:'12px 28px',borderRadius:8,background:C.teal,color:C.white,border:'none',fontWeight:700,fontSize:14,cursor:'pointer',fontFamily:F}}>View candidate pipeline →</button>
+        <button onClick={()=>{window.location.href='/recruiter/dashboard';}} style={{padding:'12px 28px',borderRadius:8,background:C.teal,color:C.white,border:'none',fontWeight:700,fontSize:14,cursor:'pointer',fontFamily:F}}>View candidate pipeline →</button>
       </div>
     </div>
   );

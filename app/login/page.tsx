@@ -17,7 +17,7 @@ export default function Login() {
     if (error) { setErr(error.message); setLoading(false); return; }
 
     const { data: profile } = await supabase.from('profiles').select('role').eq('id', data.user.id).single();
-    window.location.href = profile?.role === 'recruiter' ? '/recruiter/jobs' : '/dashboard';
+    window.location.href = profile?.role === 'recruiter' ? '/recruiter/dashboard' : '/dashboard';
   }
 
   return (

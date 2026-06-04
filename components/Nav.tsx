@@ -39,14 +39,30 @@ export default function Nav() {
           </>
         )}
 
-        {!loading && user && (
+        {!loading && user && isRecruiter && (
           <>
             <span style={{ fontSize: 12, color: C.gray400, fontFamily: F, padding: '0 6px', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.email}</span>
-            <button onClick={() => router.push('/dashboard')} style={{ background: pathname === '/dashboard' ? C.tealDim : 'none', border: 'none', color: pathname === '/dashboard' ? C.teal : C.gray600, fontWeight: pathname === '/dashboard' ? 700 : 500, fontSize: 13, cursor: 'pointer', padding: '7px 11px', borderRadius: 7, fontFamily: F }}>Dashboard</button>
+            <NavBtn active={pathname.startsWith('/recruiter') && pathname !== '/recruiter/post'} onClick={() => window.location.href = '/recruiter/dashboard'}>Dashboard</NavBtn>
+            <NavBtn active={pathname === '/recruiter/post'} onClick={() => window.location.href = '/recruiter/post'}>Post a Job</NavBtn>
+            <GBtn onClick={signOut} style={{ padding: '6px 11px', fontSize: 12 }}>Sign out</GBtn>
+          </>
+        )}
+        {!loading && user && !isRecruiter && (
+          <>
+            <span style={{ fontSize: 12, color: C.gray400, fontFamily: F, padding: '0 6px', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.email}</span>
+            <NavBtn active={pathname === '/dashboard'} onClick={() => router.push('/dashboard')}>Dashboard</NavBtn>
             <GBtn onClick={signOut} style={{ padding: '6px 11px', fontSize: 12 }}>Sign out</GBtn>
           </>
         )}
       </div>
     </nav>
+  );
+}
+
+function NavBtn({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button onClick={onClick} style={{ background: active ? C.tealDim : 'none', border: 'none', color: active ? C.teal : C.gray600, fontWeight: active ? 700 : 500, fontSize: 13, cursor: 'pointer', padding: '7px 11px', borderRadius: 7, fontFamily: F }}>
+      {children}
+    </button>
   );
 }
