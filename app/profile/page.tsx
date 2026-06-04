@@ -772,7 +772,6 @@ function migrateJob(raw:Record<string,unknown>):WorkJob{
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 export default function ProfileSurvey(){
-  console.log('render');
   const {user,profile,loading,getToken,refreshProfile,supabaseUrl,supabaseKey}=useUser();
   const router=useRouter();
   const prefillDone=useRef(false);
@@ -793,11 +792,27 @@ export default function ProfileSurvey(){
   const total=SECTIONS.length;
   const isReview=step>total;
 
+  // First log on every render so we can see what's happening
+  console.log('[Profile] loading state:', loading, 'step:', step, 'user:', !!user, 'profile:', !!profile);
+
   // Redirect to login once auth resolves and there is no user
   useEffect(()=>{
     if(!loading&&!user)router.push('/login');
   // eslint-disable-next-line react-hooks/exhaustive-deps
   },[loading,user?.id]);
+
+  // Hard 4-second timeout: if step is still -1 (loading never resolved), show the form anyway
+  useEffect(()=>{
+    const timer=setTimeout(()=>{
+      if(step===-1){
+        console.log('[Profile] 4s timeout — forcing step=1 (loading was stuck)');
+        prefillDone.current=true;
+        setStep(1);
+      }
+    },4000);
+    return()=>clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[]);
 
   // Pre-fill from DB + restore localStorage draft
   useEffect(()=>{
@@ -1093,7 +1108,7 @@ export default function ProfileSurvey(){
     }finally{clearTimeout(safetyTimer);setSaving(false);}
   }
 
-  if(loading||step<0){
+  if(step<0){
     return<div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',minHeight:'80vh',fontFamily:F,gap:14}}>
       <div style={{width:28,height:28,borderRadius:6,background:C.teal,display:'flex',alignItems:'center',justifyContent:'center',fontWeight:800,fontSize:12,color:C.white}}>M</div>
       <span style={{fontSize:14,color:C.gray600}}>Loading your profile…</span>
