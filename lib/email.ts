@@ -313,6 +313,162 @@ export function buildRecruiterDigest(firstName: string, activeJobs: { title: str
   return { subject: `Your Matcht weekly summary — ${totalNew} new this week`, html: shell(`Your Matcht recruiter summary — week ending ${weekOf}.`, teal, hero, body) };
 }
 
+// ── MATCH ALERT — SEEKER ─────────────────────────────────────────────────────
+
+type DimScores = {
+  score_skills: number; score_salary: number; score_experience: number;
+  score_location: number; score_work_style: number; score_industry: number;
+  score_availability: number; score_personality: number;
+};
+
+const DIM_LABELS: Record<string, string> = {
+  score_skills:       'Skills match',
+  score_salary:       'Salary expectations aligned',
+  score_experience:   'Experience level',
+  score_location:     'Location & remote preference',
+  score_work_style:   'Work style & culture fit',
+  score_industry:     'Industry background',
+  score_availability: 'Availability',
+  score_personality:  'Personality fit',
+};
+
+export function topMatchReasons(dims: DimScores): { label: string; pct: number }[] {
+  return (Object.entries(dims) as [string, number][])
+    .filter(([, v]) => v >= 70)
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, 3)
+    .map(([k, v]) => ({ label: DIM_LABELS[k] ?? k, pct: v }));
+}
+
+function reasonsHtml(reasons: { label: string; pct: number }[]): string {
+  if (!reasons.length) return '';
+  return `<div style="background:${bg};border-radius:10px;padding:16px 18px;margin:18px 0;">
+    <div style="font-size:11px;font-weight:700;color:${gray400};text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;">Why you're a strong match</div>
+    ${reasons.map(r => `<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid ${border};">
+      <span style="color:${green};font-size:14px;flex-shrink:0;">✓</span>
+      <span style="font-size:13px;color:${slate};font-weight:600;flex:1;">${r.label}</span>
+      <span style="font-size:13px;font-weight:800;color:${r.pct >= 85 ? green : r.pct >= 70 ? '#C9870C' : slate};">${r.pct}%</span>
+    </div>`).join('')}
+  </div>`;
+}
+
+export function buildSeekerMatchAlert(
+  firstName: string,
+  jobTitle: string,
+  company: string,
+  matchPct: number,
+  salary: string,
+  location: string,
+  reasons: { label: string; pct: number }[],
+): { subject: string; html: string } {
+  const col   = matchColor(matchPct);
+  const label = matchPct >= 85 ? 'Excellent' : matchPct >= 70 ? 'Good' : 'Fair';
+  const hero  = `
+    <div style="display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);border-radius:20px;padding:5px 14px;margin-bottom:12px;">
+      <span style="font-weight:800;font-size:15px;color:${white};">${matchPct}%</span>
+      <span style="font-size:12px;color:rgba(255,255,255,.85);font-weight:600;">${label} match</span>
+    </div>
+    <h1 style="font-size:22px;font-weight:800;color:${white};margin:0 0 6px;letter-spacing:-0.5px;">A strong match just came in, ${firstName}.</h1>
+    <p style="font-size:15px;color:rgba(255,255,255,.8);margin:0;">${jobTitle} at ${company}</p>`;
+
+  const detailRows = [
+    ['Role',        jobTitle],
+    ['Company',     company],
+    ['Location',    location],
+    ['Salary',      salary],
+    ['Match score', `${matchPct}% — ${label}`],
+  ] as [string, string][];
+
+  const body = `
+    <div style="border:1px solid ${border};border-radius:10px;overflow:hidden;margin-bottom:4px;">
+      ${detailRows.map(([l, v]) => `<div style="display:flex;padding:10px 16px;border-bottom:1px solid ${border};">
+        <span style="font-size:13px;color:${gray600};width:110px;flex-shrink:0;">${l}</span>
+        <span style="font-size:13px;color:${slate};font-weight:600;">${v}</span>
+      </div>`).join('')}
+    </div>
+    ${reasonsHtml(reasons)}
+    <p style="font-size:14px;color:${gray600};line-height:1.7;margin:0 0 20px;">No application needed. Your profile has already done the work — if you're interested, visit your dashboard to see the full match details and signal your interest.</p>
+    ${cta('View this match on my dashboard →', `${BASE_URL}/dashboard`)}
+    ${divider()}
+    <p style="font-size:12px;color:${gray400};text-align:center;margin:0;line-height:1.6;">You're receiving this because your match score for this role is ${matchPct}%.<br>
+    <a href="${BASE_URL}/settings/notifications" style="color:${gray400};">Manage notifications</a></p>`;
+
+  return {
+    subject: `${matchPct}% match — ${jobTitle} at ${company}`,
+    html:    shell(`You're a ${matchPct}% match for ${jobTitle} at ${company}.`, teal, hero, body),
+  };
+}
+
+// ── MATCH SUMMARY — RECRUITER ─────────────────────────────────────────────────
+
+type TopSeekerCard = { name: string; title: string | null; location: string | null; score: number };
+
+function anonName(name: string): string {
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 1) return parts[0];
+  return `${parts[0]} ${parts[parts.length - 1][0]}.`;
+}
+
+function candidateCardHtml(c: TopSeekerCard): string {
+  const col      = matchColor(c.score);
+  const initials = c.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+  const subtitle = [c.title, c.location].filter(Boolean).join(' · ');
+  return `<div style="border:1px solid ${border};border-radius:10px;padding:14px 16px;margin-bottom:8px;display:flex;align-items:center;gap:14px;">
+    <div style="width:42px;height:42px;border-radius:50%;background:${teal}12;border:1.5px solid ${teal}30;display:inline-flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;color:${teal};flex-shrink:0;">${initials}</div>
+    <div style="flex:1;min-width:0;">
+      <div style="font-weight:700;font-size:14px;color:${slate};margin-bottom:2px;">${anonName(c.name)}</div>
+      ${subtitle ? `<div style="font-size:12px;color:${gray600};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${subtitle}</div>` : ''}
+    </div>
+    <div style="width:46px;height:46px;border-radius:50%;border:2.5px solid ${col};background:${col}14;display:inline-flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0;text-align:center;">
+      <div style="font-size:12px;font-weight:800;color:${col};line-height:1;">${c.score}%</div>
+      <div style="font-size:8px;color:${col};font-weight:700;">${c.score >= 85 ? 'Excellent' : 'Good'}</div>
+    </div>
+  </div>`;
+}
+
+export function buildRecruiterMatchSummary(
+  firstName: string,
+  jobTitle: string,
+  company: string,
+  jobId: string,
+  matchCount: number,
+  excellentCount: number,
+  top3: TopSeekerCard[],
+): { subject: string; html: string } {
+  const hero = `
+    <h1 style="font-size:22px;font-weight:800;color:${white};margin:0 0 6px;letter-spacing:-0.5px;">Your first matches are in.</h1>
+    <p style="font-size:15px;color:rgba(255,255,255,.8);margin:0;">${jobTitle}${company ? ` · ${company}` : ''}</p>`;
+
+  const statItems: [string, number | string, string][] = [
+    ['Total matches', matchCount,     teal],
+    ['Excellent',     excellentCount, green],
+  ];
+
+  const body = `
+    <p style="font-size:14px;color:${gray600};line-height:1.7;margin:0 0 18px;">We've scored every eligible candidate on Matcht against your posting, ${firstName}. Here's where things stand.</p>
+    <div style="display:flex;gap:10px;margin-bottom:24px;">
+      ${statItems.map(([l, v, col]) => `<div style="flex:1;background:${bg};border-radius:9px;padding:14px 12px;text-align:center;">
+        <div style="font-size:28px;font-weight:800;color:${col};">${v}</div>
+        <div style="font-size:11px;color:${gray600};margin-top:3px;">${l}</div>
+      </div>`).join('')}
+    </div>
+    ${top3.length ? `<p style="font-size:13px;font-weight:700;color:${slate};margin:0 0 10px;">Top candidates</p>
+    ${top3.map(candidateCardHtml).join('')}` : ''}
+    <p style="font-size:13px;color:${gray600};line-height:1.6;margin:16px 0 20px;">Contact details are hidden until you shortlist a candidate. Shortlisting notifies the candidate and unlocks their full profile.</p>
+    ${cta('View full candidate pipeline →', `${BASE_URL}/recruiter/candidates/${jobId}`)}
+    ${divider()}
+    <p style="font-size:12px;color:${gray400};text-align:center;margin:0;"><a href="${BASE_URL}/settings/notifications" style="color:${gray400};">Manage notifications</a></p>`;
+
+  const subjectCount = excellentCount > 0
+    ? `${excellentCount} excellent match${excellentCount !== 1 ? 'es' : ''} for ${jobTitle}`
+    : `${matchCount} match${matchCount !== 1 ? 'es' : ''} for ${jobTitle}`;
+
+  return {
+    subject: subjectCount,
+    html:    shell(`Your first matches are in for ${jobTitle}.`, teal, hero, body),
+  };
+}
+
 // ── TRIGGER FUNCTIONS ─────────────────────────────────────────────────────────
 
 export async function sendSeekerWelcome(email: string, firstName: string) {
@@ -372,5 +528,23 @@ export async function sendRecruiterCandidateApplied(email: string, firstName: st
 
 export async function sendRecruiterDigest(email: string, firstName: string, activeJobs: { title: string; applicants: number; newThisWeek: number; shortlisted: number }[]) {
   const { subject, html } = buildRecruiterDigest(firstName, activeJobs);
+  await send(email, subject, html);
+}
+
+export async function sendSeekerMatchAlert(
+  email: string, firstName: string, jobTitle: string, company: string,
+  matchPct: number, salary: string, location: string,
+  reasons: { label: string; pct: number }[],
+) {
+  const { subject, html } = buildSeekerMatchAlert(firstName, jobTitle, company, matchPct, salary, location, reasons);
+  await send(email, subject, html);
+}
+
+export async function sendRecruiterMatchSummary(
+  email: string, firstName: string, jobTitle: string, company: string,
+  jobId: string, matchCount: number, excellentCount: number,
+  top3: { name: string; title: string | null; location: string | null; score: number }[],
+) {
+  const { subject, html } = buildRecruiterMatchSummary(firstName, jobTitle, company, jobId, matchCount, excellentCount, top3);
   await send(email, subject, html);
 }
