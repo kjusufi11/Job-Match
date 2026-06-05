@@ -238,13 +238,18 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* ── Matches placeholder ───────────────────────────────── */}
-        <div style={{ background: `linear-gradient(135deg, ${C.tealDim} 0%, #E6F2F2 100%)`, border: `1.5px dashed ${C.tealBorder}`, borderRadius: 14, padding: '28px 24px', marginBottom: 18, textAlign: 'center' }}>
-          <div style={{ fontSize: 32, marginBottom: 10 }}>🎯</div>
-          <div style={{ fontSize: 15, fontWeight: 800, color: C.teal, marginBottom: 6 }}>Your matches will appear here</div>
-          <div style={{ fontSize: 13, color: C.gray600, lineHeight: 1.65, maxWidth: 420, margin: '0 auto' }}>
-            Once recruiters post roles, we score them against your full profile automatically. You'll be notified the moment a strong match is found — no applying required.
+        {/* ── Matches CTA ──────────────────────────────────────── */}
+        <div style={{ background: `linear-gradient(135deg, ${C.tealDim} 0%, #E6F2F2 100%)`, border: `1.5px solid ${C.tealBorder}`, borderRadius: 14, padding: '20px 22px', marginBottom: 18, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <span style={{ fontSize: 26 }}>🎯</span>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: C.teal, marginBottom: 3 }}>See your match scores</div>
+              <div style={{ fontSize: 13, color: C.gray600, lineHeight: 1.5 }}>Every active job scored across 8 dimensions — skills, salary, experience, and more.</div>
+            </div>
           </div>
+          <a href="/matches" style={{ display: 'inline-block', padding: '10px 20px', borderRadius: 8, background: C.teal, color: C.white, fontWeight: 700, fontSize: 13, textDecoration: 'none', whiteSpace: 'nowrap', flexShrink: 0 }}>
+            View matches →
+          </a>
         </div>
 
         {/* ── Edit profile ─────────────────────────────────────── */}

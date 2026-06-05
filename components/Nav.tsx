@@ -51,6 +51,7 @@ export default function Nav() {
           <>
             <span style={{ fontSize: 12, color: C.gray400, fontFamily: F, padding: '0 6px', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.email}</span>
             <NavBtn active={pathname === '/dashboard'} onClick={() => router.push('/dashboard')}>Dashboard</NavBtn>
+            <NavBtn active={pathname === '/matches'}   onClick={() => router.push('/matches')}>Matches</NavBtn>
             <GBtn onClick={signOut} style={{ padding: '6px 11px', fontSize: 12 }}>Sign out</GBtn>
           </>
         )}
