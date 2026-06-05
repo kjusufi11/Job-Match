@@ -41,6 +41,7 @@ export default function Dashboard() {
   const { user, profile: ctxProfile, loading, supabaseUrl, supabaseKey, getToken } = useUser();
   const timerRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [showUpdatedBanner, setShowUpdatedBanner] = useState(false);
 
   // Redirect to login if no user after 3 s; redirect recruiters to their dashboard
   useEffect(() => {
@@ -52,6 +53,16 @@ export default function Dashboard() {
     return () => { if (timerRef.current) clearTimeout(timerRef.current); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, user?.id, profile?.role]);
+
+  // Show "Profile updated" banner when redirected from /profile after editing
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('updated') === '1') {
+      setShowUpdatedBanner(true);
+      window.history.replaceState({}, '', '/dashboard');
+    }
+  }, []);
 
   // Use context profile the moment it arrives
   useEffect(() => {
@@ -114,6 +125,14 @@ export default function Dashboard() {
   return (
     <div style={{ background: C.bg, minHeight: '100vh', fontFamily: F, padding: '28px 16px 60px' }}>
       <div style={{ maxWidth: 720, margin: '0 auto' }}>
+
+        {/* ── Profile-updated banner ───────────────────────────── */}
+        {showUpdatedBanner && (
+          <div style={{ background: '#19A87A14', border: '1px solid #19A87A40', borderRadius: 10, padding: '12px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 13, color: C.green, fontFamily: F, fontWeight: 600 }}>
+            <span>✓ Profile updated — your matches have been refreshed.</span>
+            <button onClick={() => setShowUpdatedBanner(false)} style={{ background: 'none', border: 'none', color: C.green, cursor: 'pointer', fontSize: 18, lineHeight: 1, padding: '0 0 0 12px', fontWeight: 400 }}>×</button>
+          </div>
+        )}
 
         {/* ── Header ───────────────────────────────────────────── */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 22, flexWrap: 'wrap', gap: 10 }}>

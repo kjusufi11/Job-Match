@@ -1182,7 +1182,7 @@ export default function ProfileSurvey(){
       try{localStorage.removeItem(`matcht_profile_step_${uid}`);}catch{}
       try{localStorage.removeItem(`matcht_resume_seen_${uid}`);}catch{}
       console.log('[submit] success — navigating to /dashboard');
-      window.location.href='/dashboard';
+      window.location.href = isEdit ? '/dashboard?updated=1' : '/dashboard';
     }catch(err:unknown){
       console.error('[submit] error:',err);
       setSaveError((err as Error)?.message||'Save failed. Your answers are saved — please try again.');
