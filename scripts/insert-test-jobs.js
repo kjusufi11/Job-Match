@@ -22,7 +22,7 @@
 const https = require('https');
 
 const SB_URL = 'eanhvbvdjfkiiagkxtoo.supabase.co';
-const KEY    = 'REMOVED';
+const KEY    = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const RID    = 'dc69b907-63e9-4bda-a3cf-8da480a88061';
 
 // IDs of previously inserted test jobs to delete
