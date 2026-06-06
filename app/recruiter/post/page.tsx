@@ -426,6 +426,14 @@ export default function RecruiterPost(){
 
   if(loading)return<div style={{display:'flex',alignItems:'center',justifyContent:'center',minHeight:'60vh',fontFamily:F,color:C.teal}}>Loading…</div>;
 
+  // Subscription gate — redirect to /pricing if not active or trialing
+  const subStatus=profile?.subscription_status;
+  const hasAccess=subStatus==='active'||subStatus==='trialing';
+  if(profile&&!hasAccess){
+    window.location.href='/pricing';
+    return<div style={{display:'flex',alignItems:'center',justifyContent:'center',minHeight:'60vh',fontFamily:F,color:C.teal}}>Redirecting…</div>;
+  }
+
   if(done)return(
     <div style={{background:C.bg,minHeight:'100vh',fontFamily:F,display:'flex',alignItems:'center',justifyContent:'center',padding:24}}>
       <div style={{textAlign:'center',maxWidth:420}}>

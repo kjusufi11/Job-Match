@@ -1,12 +1,10 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@/app/providers';
+import { createClient } from '@/lib/supabase/client';
 import { C, F, matchColor, matchLabel, matchDim, Pill, Spinner } from '@/components/ui';
 import type { MatchScore, Job } from '@/lib/types';
-
-const SB_URL  = (process.env.NEXT_PUBLIC_SUPABASE_URL  ?? '').replace(/^﻿/, '').trim();
-const SB_ANON = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '').replace(/^﻿/, '').trim();
 
 type Match = MatchScore & { job: Job };
 type Filter = 'all' | 'excellent' | 'good' | 'fair';
@@ -34,8 +32,9 @@ function fmtSalary(min?: number | null, max?: number | null): string | null {
 }
 
 export default function MatchesPage() {
-  const { user, profile, loading, supabaseUrl, supabaseKey, getToken } = useUser();
+  const { user, profile, loading } = useUser();
   const router = useRouter();
+  const supabase = useMemo(() => createClient(), []);
 
   const [matches,  setMatches]  = useState<Match[]>([]);
   const [fetching, setFetching] = useState(true);
@@ -56,28 +55,27 @@ export default function MatchesPage() {
   async function loadMatches() {
     setFetching(true);
     try {
-      const token = getToken();
-      const url   = supabaseUrl || SB_URL;
-      const key   = supabaseKey || SB_ANON;
-      if (!token || !url || !key) return;
+      const { data: scores, error: scoresErr } = await supabase
+        .from('match_scores')
+        .select('*')
+        .eq('seeker_id', user!.id)
+        .order('total_score', { ascending: false });
 
-      const scoresRes = await fetch(
-        `${url}/rest/v1/match_scores?seeker_id=eq.${user!.id}&order=total_score.desc`,
-        { headers: { apikey: key, Authorization: `Bearer ${token}` } },
+      if (scoresErr || !scores?.length) { setMatches([]); return; }
+
+      const ids = scores.map(s => s.job_id);
+      const { data: jobs } = await supabase
+        .from('jobs')
+        .select('*')
+        .in('id', ids)
+        .eq('status', 'active');
+
+      const byId = Object.fromEntries((jobs ?? []).map((j: Job) => [j.id, j]));
+      setMatches(
+        (scores as MatchScore[])
+          .filter(s => byId[s.job_id])
+          .map(s => ({ ...s, job: byId[s.job_id] }))
       );
-      if (!scoresRes.ok) return;
-      const scores: MatchScore[] = await scoresRes.json();
-      if (!scores.length) { setMatches([]); return; }
-
-      const ids = scores.map(s => s.job_id).join(',');
-      const jobsRes = await fetch(
-        `${url}/rest/v1/jobs?id=in.(${ids})&status=eq.active&select=*`,
-        { headers: { apikey: key, Authorization: `Bearer ${token}` } },
-      );
-      const jobs: Job[] = jobsRes.ok ? await jobsRes.json() : [];
-      const byId = Object.fromEntries(jobs.map(j => [j.id, j]));
-
-      setMatches(scores.filter(s => byId[s.job_id]).map(s => ({ ...s, job: byId[s.job_id] })));
     } finally {
       setFetching(false);
     }

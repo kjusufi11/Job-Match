@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useUser } from '@/app/providers';
 import { createClient } from '@/lib/supabase/client';
 import { C, F, Badge, GBtn, PBtn, Spinner, matchColor, matchDim, matchLabel } from '@/components/ui';
@@ -60,11 +60,13 @@ function fmtSalary(min?: number | null, max?: number | null) {
 export default function RecruiterDashboard() {
   const { user, profile, loading } = useUser();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const supabase = useMemo(() => createClient(), []);
 
   const [jobs, setJobs] = useState<JobCard[]>([]);
   const [fetching, setFetching] = useState(true);
   const [actingOn, setActingOn] = useState<string | null>(null); // seeker_id being acted on
+  const [showSuccess, setShowSuccess] = useState(searchParams.get('success') === '1');
 
   // Auth guard
   useEffect(() => {
@@ -164,18 +166,10 @@ export default function RecruiterDashboard() {
   async function expressInterest(job: JobCard, c: Candidate) {
     setActingOn(c.seeker_id);
     try {
-      // Record interest in applications table
-      await supabase.from('applications').upsert(
-        { job_id: job.id, seeker_id: c.seeker_id, status: 'shortlisted' },
-        { onConflict: 'job_id,seeker_id' }
-      );
-
-      // Notify the seeker
-      await supabase.from('notifications').insert({
-        user_id:  c.seeker_id,
-        type:     'shortlist',
-        text:     `A recruiter expressed interest in your profile for ${job.title}${job.company_name ? ` at ${job.company_name}` : ''}.`,
-        metadata: { job_id: job.id },
+      await fetch('/api/shortlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jobId: job.id, seekerId: c.seeker_id }),
       });
 
       // Fire shortlist email (non-blocking)
@@ -210,6 +204,20 @@ export default function RecruiterDashboard() {
   return (
     <div style={{ background: C.bg, minHeight: '100vh', fontFamily: F, padding: '28px 16px 60px' }}>
       <div style={{ maxWidth: 800, margin: '0 auto' }}>
+
+        {/* Stripe success banner */}
+        {showSuccess && (
+          <div style={{ background: C.greenDim, border: `1px solid ${C.green}30`, borderRadius: 12, padding: '14px 18px', marginBottom: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ fontSize: 18 }}>🎉</span>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: C.green }}>You&apos;re all set!</div>
+                <div style={{ fontSize: 12, color: C.gray600, marginTop: 2 }}>Your 14-day free trial is active. Post your first job to start matching with candidates.</div>
+              </div>
+            </div>
+            <button onClick={() => setShowSuccess(false)} style={{ background: 'none', border: 'none', color: C.gray400, fontSize: 18, cursor: 'pointer', flexShrink: 0, lineHeight: 1 }}>×</button>
+          </div>
+        )}
 
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 22, flexWrap: 'wrap', gap: 10 }}>

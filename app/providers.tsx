@@ -1,8 +1,14 @@
 ﻿'use client';
-import { createContext, useContext, useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { Profile } from '@/lib/types';
 import type { User } from '@supabase/supabase-js';
+
+// Module-level singleton: React Strict Mode mounts components twice, which would
+// create two separate GoTrueClient instances each with their own internal lock.
+// Two simultaneous getSession() calls from different instances deadlock each other.
+// A single shared client instance avoids this entirely.
+const supabaseClient = createClient();
 
 type UserCtx = {
   user: User | null;
@@ -39,8 +45,8 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     } catch {}
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  // Stable client -- not recreated every render, so useEffect deps don't thrash
-  const supabase = useMemo(() => createClient(), []);
+
+  const supabase = supabaseClient;
 
   const fetchProfile = useCallback(async (uid: string) => {
     const { data } = await supabase.from('profiles').select('*').eq('id', uid).single();
@@ -56,47 +62,37 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let cancelled = false;
 
-    async function init() {
-      let timedOut = false;
-      const fallback = setTimeout(() => {
-        timedOut = true;
-        if (!cancelled) setLoading(false);
-      }, 5000);
+    // Rely on onAuthStateChange (fires INITIAL_SESSION immediately) rather than a
+    // separate getSession() call. This avoids a second concurrent lock acquisition
+    // when Strict Mode unmounts/remounts the provider.
+    const fallback = setTimeout(() => {
+      if (!cancelled) setLoading(false);
+    }, 5000);
 
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        clearTimeout(fallback);
-        if (cancelled) return;
-        tokenRef.current = session?.access_token ?? null;
-        const u = session?.user ?? null;
-        setUser(u);
-        if (u) await fetchProfile(u.id);
-        else setProfile(null);
-        if (!cancelled) setLoading(false);
-      } catch {
-        clearTimeout(fallback);
-        if (!cancelled) { setUser(null); setProfile(null); setLoading(false); }
-      }
-    }
-
-    init();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (cancelled) return;
+      clearTimeout(fallback);
       tokenRef.current = session?.access_token ?? null;
       const u = session?.user ?? null;
       setUser(u);
-      try {
-        if (u) await fetchProfile(u.id);
-        else setProfile(null);
-      } catch {
-        if (!cancelled) setProfile(null);
+      if (!u) {
+        setProfile(null);
+        setLoading(false);
+        return;
       }
-      if (!cancelled) setLoading(false);
+      // Defer profile fetch to a new macrotask so it runs AFTER the auth client
+      // releases its internal lock (which is held for the duration of this callback).
+      // Calling supabase.from().select() here would call auth.getSession() → deadlock.
+      setTimeout(async () => {
+        if (cancelled) return;
+        try { await fetchProfile(u.id); } catch { if (!cancelled) setProfile(null); }
+        if (!cancelled) setLoading(false);
+      }, 0);
     });
 
     return () => {
       cancelled = true;
+      clearTimeout(fallback);
       subscription.unsubscribe();
     };
   }, [supabase, fetchProfile]);

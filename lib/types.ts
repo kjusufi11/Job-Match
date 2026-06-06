@@ -106,6 +106,11 @@ export type Profile = {
   // ── Resume ──────────────────────────────────────────────────
   resume_text?: string | null;
 
+  // ── Stripe ──────────────────────────────────────────────────
+  stripe_customer_id?: string | null;
+  stripe_subscription_id?: string | null;
+  subscription_status?: 'active' | 'trialing' | 'past_due' | 'canceled' | 'incomplete' | null;
+
   // ── Meta ────────────────────────────────────────────────────
   video_url?: string | null;
   profile_complete?: boolean;
